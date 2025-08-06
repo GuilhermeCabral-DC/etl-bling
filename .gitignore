@@ -1,4 +1,5 @@
 # Ambientes virtuais Python
+.cache/
 env/
 venv/
 .venv/
@@ -29,5 +30,3 @@ Thumbs.db
 # Outras pastas temporárias/comuns
 .idea/
 *.log
-.cache/
-
