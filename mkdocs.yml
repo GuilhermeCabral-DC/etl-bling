@@ -1,6 +1,6 @@
 site_name: ETL Bling – Documentação Oficial | Grupo Stilli
 site_description: "Documentação técnica do pipeline de integração Bling para PostgreSQL"
-site_url: https://seu-usuario.github.io/etl-bling/
+site_url: https://guilhermecabral-dc.github.io/etl-bling/
 theme:
   name: material
   custom_dir: overrides
