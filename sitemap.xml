@@ -1,95 +1,95 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/contribuicao/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/contribuicao/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/deploy/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/deploy/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/faq/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/faq/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/settings/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/settings/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/api/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/api/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/api/endpoints/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/api/endpoints/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/api/erros/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/api/erros/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/api/limites/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/api/limites/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/api/paginacao/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/api/paginacao/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/db/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/db/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/db/controle_carga/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/db/controle_carga/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/db/procedures/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/db/procedures/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/db/roles/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/db/roles/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/db/schemas/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/db/schemas/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/db/tabelas/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/db/tabelas/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/python/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/python/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/python/arquitetura/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/python/arquitetura/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/python/carga/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/python/carga/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/python/extracao/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/python/extracao/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/python/logging/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/python/logging/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/python/transformacao/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/python/transformacao/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
     <url>
-         <loc>https://seu-usuario.github.io/etl-bling/python/utils/</loc>
+         <loc>https://guilhermecabral-dc.github.io/etl-bling/python/utils/</loc>
          <lastmod>2025-08-06</lastmod>
     </url>
 </urlset>
