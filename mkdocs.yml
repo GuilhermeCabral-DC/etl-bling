@@ -38,14 +38,14 @@ extra_css:
 extra:
   social:
     image: assets/social-card.png
-  og_image: assets/social-card.png
-  twitter_image: assets/social-card.png
+    title: "ETL Bling"
+    description: "Documentação do pipeline ETL para integração com a API Bling."
   generator: false
-  social: []
   footer: |
     <p style="text-align: center; font-size: 0.9em; color: #888;">
       Pipeline Bling ETL • Desenvolvido por Guilherme Cabral • © 2025
     </p>
+
 
 
 plugins:
