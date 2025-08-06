@@ -1,1 +1,0 @@
-Select * from conf.importacao_falha
