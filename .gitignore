@@ -1,0 +1,33 @@
+# Ambientes virtuais Python
+env/
+venv/
+.venv/
+ENV/
+.Python
+
+# Cache do Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos temporários do VS Code
+.vscode/
+
+# Arquivos gerados do MkDocs
+site/
+
+# Arquivos de ambiente e segredos
+.env
+*.env
+.env.*
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Outras pastas temporárias/comuns
+.idea/
+*.log
+.cache/
+

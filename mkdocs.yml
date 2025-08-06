@@ -1,0 +1,89 @@
+site_name: ETL Bling – Documentação Oficial | Grupo Stilli
+site_description: "Documentação técnica do pipeline de integração Bling para PostgreSQL"
+theme:
+  name: material
+  custom_dir: overrides
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+  language: pt
+  palette:
+  - scheme: default
+    primary: blue   # placeholder (será sobrescrito pelo extra.css)
+    accent: blue
+    toggle:
+      icon: material/brightness-4
+      name: Mudar para modo escuro
+  - scheme: slate
+    primary: blue   # placeholder (será sobrescrito pelo extra.css)
+    accent: blue
+    toggle:
+      icon: material/brightness-7
+      name: Mudar para modo claro
+
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+
+extra_css:
+  - assets/extra.css
+
+extra:
+  social:
+    image: assets/social-card.png
+  og_image: assets/social-card.png
+  twitter_image: assets/social-card.png
+  generator: false
+  social: []
+  footer: |
+    <p style="text-align: center; font-size: 0.9em; color: #888;">
+      Pipeline Bling ETL • Desenvolvido por Guilherme Cabral • © 2025
+    </p>
+
+
+plugins:
+  - search
+  - social
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+markdown_extensions:
+  - admonition
+  - pymdownx.superfences
+  
+nav:
+  - Visão Geral: index.md
+  - Banco de Dados:
+      - Visão Geral: db/index.md
+      - Tabelas: db/tabelas.md
+      - Schemas: db/schemas.md
+      - Procedures: db/procedures.md
+      - Usuários & Roles: db/roles.md
+      - Controle de Carga: db/controle_carga.md
+  - API Bling:
+      - Visão Geral: api/index.md
+      - Endpoints: api/endpoints.md
+      - Paginação: api/paginacao.md
+      - Limites e Restrições: api/limites.md
+      - Erros Comuns: api/erros.md
+  - Python & ETL:
+      - Visão Geral: python/index.md
+      - Arquitetura dos Scripts: python/arquitetura.md
+      - Extração: python/extracao.md
+      - Transformação: python/transformacao.md
+      - Carga: python/carga.md
+      - Logging: python/logging.md
+      - Utilitários: python/utils.md
+  - Configuração:
+      - Parâmetros: settings.md
+      - Deploy & Execução: deploy.md
+      - FAQ: faq.md
+  - Contribuição: contribuicao.md
+

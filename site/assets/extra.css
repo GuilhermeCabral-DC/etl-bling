@@ -1,0 +1,91 @@
+/* 🌞 Modo CLARO */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:        #062c43;
+  --md-primary-fg-color--light: #0a3c5c;
+  --md-primary-fg-color--dark:  #041a2c;
+  --md-accent-fg-color:         #00bfff;
+}
+
+/* 🌙 Modo ESCURO */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:        #062c43;
+  --md-primary-fg-color--light: #0a3c5c;
+  --md-primary-fg-color--dark:  #041a2c;
+  --md-accent-fg-color:         #00bfff;
+}
+
+/* ✅ Corrigir contraste do menu no modo escuro */
+[data-md-color-scheme="slate"] .md-nav__link {
+  color: #e0e0e0; /* cinza claro para melhor legibilidade */
+}
+
+[data-md-color-scheme="slate"] .md-nav__link--active,
+[data-md-color-scheme="slate"] .md-nav__link:focus,
+[data-md-color-scheme="slate"] .md-nav__link:hover {
+  color: #00bfff;
+}
+
+/* 🖼️ Aumentar a altura do logo */
+.md-header__button.md-logo img {
+  height: 48px;
+}
+
+/* 🟦 Cor de fundo da barra superior e título do menu */
+.md-header,
+.md-nav__title,
+.md-nav__source {
+  background-color: #062c43;
+}
+
+/* 🔷 Cor de links ativos e hover (menu lateral e abas horizontais) */
+.md-nav__link--active,
+.md-nav__link:focus,
+.md-nav__link:hover {
+  color: #00bfff;
+}
+
+.md-tabs__link--active,
+.md-tabs__link:focus,
+.md-tabs__link:hover {
+  color: #00bfff;
+  border-bottom: 2px solid #00bfff;
+}
+
+/* Rodapé: fundo azul escuro e texto branco */
+.md-footer,
+.md-footer__inner,
+.md-footer-meta,
+.md-footer-meta__inner,
+.md-footer .md-typeset {
+  background-color: #062c43 !important;
+  color: #ffffff !important;
+}
+
+/* Links e spans no rodapé também brancos */
+.md-footer a,
+.md-footer span,
+.md-footer p {
+  color: #ffffff !important;
+}
+
+/* Hover em links do rodapé */
+.md-footer a:hover {
+  color: #00bfff !important;
+  text-decoration: underline;
+}
+
+/* 💡 Corrige cor dos links no conteúdo (modo escuro) */
+/* ...seu css anterior... */
+
+/* 💡 Corrige cor dos links do conteúdo (modo escuro) */
+[data-md-color-scheme="slate"] .md-typeset a {
+  color: #00bfff;
+  text-decoration: none;
+}
+
+[data-md-color-scheme="slate"] .md-typeset a:hover {
+  color: #1ec7ff;
+  text-decoration: underline;
+}
+
+
