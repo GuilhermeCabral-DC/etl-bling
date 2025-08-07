@@ -13,7 +13,7 @@ TOKEN_URL = os.getenv("TOKEN_URL")
 
 
 
-CODE_RECEBIDO = "0fa5f2d962fe20a4beb50e25bb0917b855356ecb"  # Cole aqui o code obtido
+CODE_RECEBIDO = "6add73f8967d19c6877e20c03b91bcf8aa0bc272"  # Cole aqui o code obtido
 
 data = {
     "grant_type": "authorization_code",
