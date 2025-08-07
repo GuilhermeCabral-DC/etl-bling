@@ -1,7 +1,6 @@
 # %% INICIALIZAÇÃO
 
 from dotenv import load_dotenv
-load_dotenv()
 import os, json
 from datetime import datetime, timedelta
 import time
@@ -54,6 +53,8 @@ from src.config import (
     
 )
 
+
+load_dotenv()
 api_key = os.getenv("BLING_API_KEY")
 db_uri = os.getenv("POSTGRES_URI")
 api = BlingAPI(api_key)
@@ -323,15 +324,25 @@ if RODAR_CANAIS_VENDA:
     id_log_cat = iniciar_log_etl(db_uri, tabela="canais_venda_bling", acao="extracao")
     tempo_inicio = time.time()
     try:
+        if DEBUG:
+            log_etl("CANAIS VENDA", "DEBUG", "Buscando canais de venda via API Bling")
         canais_venda = api.get_all_paginated("canais-venda", data_path=['data'])
+        
+        if DEBUG:
+            log_etl("CANAIS VENDA", "DEBUG", f"Total canais recebidos: {len(canais_venda)}")
+            for idx, c in enumerate(canais_venda, 1):
+                log_etl("CANAIS VENDA", "DEBUG", f"ID {idx}: {c.get('id')}")
+
         log_etl("CANAIS VENDA", "API", "Dados coletados da API", quantidade=len(canais_venda))
 
         lista_canais_venda = [map_canais_venda(c) for c in canais_venda]
         upsert_canais_venda_bling_bulk(lista_canais_venda, db_uri)
+
         log_etl("CANAIS VENDA", "DB", "Inseridos/atualizados no banco", quantidade=len(lista_canais_venda))
 
         finalizar_log_etl(db_uri, id_log_cat, status="finalizado")
         log_etl("CANAIS VENDA", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
+
         atualizar_controle_carga(
             db_uri,
             "canais_venda",
@@ -343,6 +354,12 @@ if RODAR_CANAIS_VENDA:
     except Exception as e:
         log_etl("CANAIS VENDA", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_cat, status="erro", mensagem_erro=str(e))
+        registrar_falha_importacao(
+            db_uri,
+            entidade="canais_venda",
+            id_referencia=None,
+            erro=str(e)
+        )
         raise
 else:
     log_etl("CANAIS VENDA", "DESLIGADA", "Carga da canais venda está desligada (RODAR_CANAIS_VENDA = False)")

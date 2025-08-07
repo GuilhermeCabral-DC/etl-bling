@@ -197,7 +197,7 @@ class BlingAPI:
             return None
 # endregion
 
-# region ============= REQUISIÇÃO GENÉRICA (GET) =============
+# region ============= DEPÓSITOS: GET =============
 
     def get_depositos(self):
         """
@@ -246,4 +246,4 @@ class BlingAPI:
             )
             return None
 
-    # endregion
+# endregion
