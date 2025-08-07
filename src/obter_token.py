@@ -11,6 +11,8 @@ CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 TOKEN_URL = os.getenv("TOKEN_URL")
 
+
+
 CODE_RECEBIDO = "0fa5f2d962fe20a4beb50e25bb0917b855356ecb"  # Cole aqui o code obtido
 
 data = {

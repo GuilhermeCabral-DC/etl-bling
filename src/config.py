@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 # region ============= CONTROLE DE CARGA =============
 
-CARGA_FULL = True
+CARGA_FULL = False
 DATA_FULL_INICIAL = datetime(2020, 1, 1)
 MARGEM_DIAS_INCREMENTO = 2
 

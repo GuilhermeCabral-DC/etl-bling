@@ -30,3 +30,5 @@ Thumbs.db
 # Outras pastas temporárias/comuns
 .idea/
 *.log
+tokens.json
+erp_dw.session.sql

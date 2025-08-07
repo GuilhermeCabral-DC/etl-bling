@@ -6,7 +6,7 @@ import json
 import os
 import base64
 
-# endregion ==== VARIÁVEIS DE AMBIENTE ====
+# endregion
 
 # region ==== VARIÁVEIS DE AMBIENTE ====
 CLIENT_ID = os.getenv("CLIENT_ID")

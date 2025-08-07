@@ -1,6 +1,7 @@
 # %% INICIALIZAÇÃO
 
 from dotenv import load_dotenv
+load_dotenv()
 import os, json
 from datetime import datetime, timedelta
 import time
@@ -53,8 +54,6 @@ from src.config import (
     
 )
 
-
-load_dotenv()
 api_key = os.getenv("BLING_API_KEY")
 db_uri = os.getenv("POSTGRES_URI")
 api = BlingAPI(api_key)
