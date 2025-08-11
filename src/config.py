@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 # region ============= CONTROLE DE CARGA =============
 
-CARGA_FULL = False
+CARGA_FULL = True
 DATA_FULL_INICIAL = datetime(2020, 1, 1)
 MARGEM_DIAS_INCREMENTO = 2
 
@@ -16,6 +16,7 @@ RODAR_CANAIS_VENDA = True
 RODAR_VENDEDOR = True
 RODAR_DEPOSITOS = True
 RODAR_SALDO_PRODUTO_DEPOSITO = True
+RODAR_PEDIDOS_VENDAS = True
 
 # endregion
 
@@ -33,3 +34,5 @@ REPROCESSAR_SALDO_MANUAL = True
 DEBUG = True
 
 # endregion
+
+MARGEM_MINUTOS_DRIFT = 10

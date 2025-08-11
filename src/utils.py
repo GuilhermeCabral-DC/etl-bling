@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 from src.transformers import map_produtos, map_saldo_produto_deposito
 from src.db import upsert_produto_bling_bulk, upsert_saldo_produto_deposito_bulk
 from src.date_utils import parse_date_safe
-from src.config import (MARGEM_DIAS_INCREMENTO,)
+from src.config import (MARGEM_DIAS_INCREMENTO, MARGEM_MINUTOS_DRIFT, DATA_FULL_INICIAL)
 from src.log import (log_etl,)
+
 # endregion
 
 # region DEFINE DATA INICIAL E FINAL DO INCREMENTAL
@@ -223,4 +224,25 @@ def reprocessa_saldo_produtos_por_ids(lista_ids, api, db_uri):
                 "ERRO",
                 f"Erro ao reprocessar saldo do produto {id_prod}: {erro}"
             )
+# endregion
+
+# region FORMAT DATE TIME
+def format_bling_datetime(dt):
+    if not dt:
+        return None
+    return dt.strftime("%Y-%m-%dT%H:%M:%S")
+# endregion
+
+# region JANELA INCREMENTAL
+def janela_incremental(entidade_nome, carga_full, ultima_execucao, margem_dias, margem_minutos_drift):
+    """
+    Retorna (dt_inicial, dt_final) já aplicando margens e corte no 'agora - drift'.
+    """
+    agora = datetime.now()
+    dt_final = agora - timedelta(minutes=MARGEM_MINUTOS_DRIFT)
+    if carga_full or not ultima_execucao:
+        dt_inicial = DATA_FULL_INICIAL
+    else:
+        dt_inicial = (ultima_execucao - timedelta(days=margem_dias)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return dt_inicial, dt_final
 # endregion

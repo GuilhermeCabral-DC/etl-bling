@@ -17,3 +17,13 @@ def parse_date_safe(date_str):
             continue
     return None
 # endregion
+
+# region FORMATAR DATA DO INCREMENTAL
+
+def format_bling_datetime(dt):
+    if not dt:
+        return None
+    return dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+# endregion

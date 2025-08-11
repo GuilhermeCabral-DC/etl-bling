@@ -178,3 +178,70 @@ def map_saldo_produto_deposito(api_data):
     return registros
 
 # endregion
+
+# region MAPEAR PEDIDO DE VENDA
+def map_pedido_venda(api_obj):
+    """
+    Recebe o 'data' de /pedidos/vendas/{id} e devolve um dict compatível com stg.pedido_venda_bling.
+    """
+    from datetime import datetime
+    now = datetime.now()
+
+    contato = api_obj.get("contato") or {}
+    situacao = api_obj.get("situacao") or {}
+    loja = api_obj.get("loja") or {}
+    desconto = api_obj.get("desconto") or {}
+    categoria = api_obj.get("categoria") or {}
+    nf = api_obj.get("notaFiscal") or {}
+    trib = api_obj.get("tributacao") or {}
+    vendedor = api_obj.get("vendedor") or {}
+    intermediador = api_obj.get("intermediador") or {}
+    taxas = api_obj.get("taxas") or {}
+
+    return {
+        "id_bling":              api_obj.get("id"),
+        "numero":                api_obj.get("numero"),
+        "numero_loja":           api_obj.get("numeroLoja"),
+        "data_pedido":           parse_date_safe(api_obj.get("data")),
+        "data_saida":            parse_date_safe(api_obj.get("dataSaida")),
+        "data_prevista":         parse_date_safe(api_obj.get("dataPrevista")),
+        "total_produtos":        api_obj.get("totalProdutos"),
+        "total":                 api_obj.get("total"),
+
+        "id_contato":            contato.get("id"),
+        "contato_nome":          contato.get("nome"),
+        "contato_tipo_pessoa":   contato.get("tipoPessoa"),
+        "contato_documento":     contato.get("numeroDocumento"),
+
+        "id_situacao":           situacao.get("id"),
+        "situacao_valor":        situacao.get("valor"),
+
+        "id_loja":               loja.get("id"),
+        "numero_pedido_compra":  api_obj.get("numeroPedidoCompra"),
+
+        "outras_despesas":       api_obj.get("outrasDespesas"),
+        "observacoes":           api_obj.get("observacoes"),
+        "observacoes_internas":  api_obj.get("observacoesInternas"),
+
+        "desconto_valor":        desconto.get("valor"),
+        "desconto_unidade":      desconto.get("unidade"),
+
+        "id_categoria":          categoria.get("id"),
+        "id_nota_fiscal":        nf.get("id"),
+
+        "trib_total_icms":       trib.get("totalICMS"),
+        "trib_total_ipi":        trib.get("totalIPI"),
+
+        "itens_json":            api_obj.get("itens") or [],
+        "parcelas_json":         api_obj.get("parcelas") or [],
+        "transporte_json":       api_obj.get("transporte") or {},
+        "taxas_json":            taxas,
+
+        "id_vendedor":           vendedor.get("id"),
+        "intermediador_cnpj":    intermediador.get("cnpj"),
+        "intermediador_usuario": intermediador.get("nomeUsuario"),
+
+        "dt_carga":              now,
+        "dt_atualizacao":        now,
+    }
+# endregion

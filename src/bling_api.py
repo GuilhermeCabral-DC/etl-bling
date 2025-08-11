@@ -247,3 +247,45 @@ class BlingAPI:
             return None
 
 # endregion
+
+# region ============= PEDIDOS: VENDAS (LISTA IDS/PAGINADO) =============
+    def get_pedidos_vendas_ids_pagina(self, pagina: int, limit: int = 100, params: dict | None = None):
+        """
+        Busca IDs de pedidos de venda de UMA página.
+        Aceita filtros: dataAlteracaoInicial/dataAlteracaoFinal.
+        """
+        endpoint = "pedidos/vendas"
+        page_params = (params or {}).copy()
+        page_params["limite"] = limit
+        page_params["pagina"] = pagina
+
+        try:
+            resp = self.get(endpoint, params=page_params)
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 404:
+                return []
+            raise
+
+        data = resp.get("data", []) if isinstance(resp, dict) else (resp if isinstance(resp, list) else [])
+        return [item["id"] for item in data if isinstance(item, dict) and "id" in item]
+# endregion
+
+# region ============= PEDIDOS: VENDAS (DETALHE POR ID) =============
+    def get_pedido_venda_por_id(self, id_pedido_venda: int):
+        endpoint = f"pedidos/vendas/{id_pedido_venda}"
+        try:
+            response = self.get(endpoint)
+            if isinstance(response, dict) and "data" in response and isinstance(response["data"], dict):
+                return response["data"]
+            return response
+        except requests.exceptions.HTTPError as e:
+            log_etl("PEDIDOS_VENDAS", "ERRO",
+                    f"Erro ao buscar pedido {id_pedido_venda}",
+                    erro=f"status: {e.response.status_code}, resp: {e.response.text}")
+            if e.response.status_code == 404:
+                return None
+            return None
+        except Exception as e:
+            log_etl("PEDIDOS_VENDAS", "ERRO", f"Erro inesperado no pedido {id_pedido_venda}", erro=str(e))
+            return None
+# endregion
