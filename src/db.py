@@ -399,7 +399,7 @@ def upsert_pedido_venda_bling_bulk(db_uri, registros, batch_size=20):
             id_contato, contato_nome, contato_tipo_pessoa, contato_documento,
             id_situacao, situacao_valor, id_loja, numero_pedido_compra,
             outras_despesas, observacoes, observacoes_internas,
-            desconto_valor, desconto_unidade, id_categoria, id_nota_fiscal,
+            desconto_valor, desconto_unidade, id_categoria_financeira, id_nota_fiscal,
             trib_total_icms, trib_total_ipi,
             itens_json, parcelas_json, transporte_json, taxas_json,
             id_vendedor, intermediador_cnpj, intermediador_usuario,
@@ -426,7 +426,7 @@ def upsert_pedido_venda_bling_bulk(db_uri, registros, batch_size=20):
             observacoes_internas = EXCLUDED.observacoes_internas,
             desconto_valor = EXCLUDED.desconto_valor,
             desconto_unidade = EXCLUDED.desconto_unidade,
-            id_categoria = EXCLUDED.id_categoria,
+            id_categoria_financeira = EXCLUDED.id_categoria_financeira,
             id_nota_fiscal = EXCLUDED.id_nota_fiscal,
             trib_total_icms = EXCLUDED.trib_total_icms,
             trib_total_ipi = EXCLUDED.trib_total_ipi,
@@ -454,7 +454,7 @@ def upsert_pedido_venda_bling_bulk(db_uri, registros, batch_size=20):
                         r["id_contato"], r["contato_nome"], r["contato_tipo_pessoa"], r["contato_documento"],
                         r["id_situacao"], r["situacao_valor"], r["id_loja"], r["numero_pedido_compra"],
                         r["outras_despesas"], r["observacoes"], r["observacoes_internas"],
-                        r["desconto_valor"], r["desconto_unidade"], r["id_categoria"], r["id_nota_fiscal"],
+                        r["desconto_valor"], r["desconto_unidade"], r["id_categoria_financeira"], r["id_nota_fiscal"],
                         r["trib_total_icms"], r["trib_total_ipi"],
                         json.dumps(r["itens_json"]), json.dumps(r["parcelas_json"]),
                         json.dumps(r["transporte_json"]), json.dumps(r["taxas_json"]),
@@ -466,3 +466,42 @@ def upsert_pedido_venda_bling_bulk(db_uri, registros, batch_size=20):
                     log_etl("PEDIDOS_VENDAS", "DEBUG",
                             f"Batch {i//batch_size + 1}: {len(batch)} pedidos inseridos/atualizados.")
 # endregion
+
+# region CATEGORIA RECEITA/DESPESA (FULL)
+def upsert_categoria_receita_despesa_bling_bulk(lista_de_dicts, db_uri, batch_size=1000):
+    """
+    Upsert em lote na tabela stg.categoria_receita_despesa_bling.
+    """
+    if not lista_de_dicts:
+        return
+
+    sql = """
+        INSERT INTO stg.categoria_receita_despesa_bling (
+            id_bling, id_categoria_pai, descricao, tipo, dt_carga, dt_atualizacao
+        )
+        VALUES %s
+        ON CONFLICT (id_bling) DO UPDATE SET
+            id_categoria_pai = EXCLUDED.id_categoria_pai,
+            descricao        = EXCLUDED.descricao,
+            tipo             = EXCLUDED.tipo,
+            dt_carga         = stg.categoria_receita_despesa_bling.dt_carga,
+            dt_atualizacao   = EXCLUDED.dt_atualizacao;
+    """
+
+    with psycopg2.connect(db_uri) as conn:
+        with conn.cursor() as cur:
+            # execute_values é mais rápido para muitos registros
+            psycopg2.extras.execute_values(
+                cur, sql,
+                [(
+                    r["id_bling"],
+                    r["id_categoria_pai"],
+                    r["descricao"],
+                    r["tipo"],
+                    r.get("dt_carga"),
+                    r.get("dt_atualizacao"),
+                ) for r in lista_de_dicts],
+                page_size=batch_size
+            )
+# endregion
+

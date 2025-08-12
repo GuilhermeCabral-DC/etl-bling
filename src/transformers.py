@@ -226,7 +226,7 @@ def map_pedido_venda(api_obj):
         "desconto_valor":        desconto.get("valor"),
         "desconto_unidade":      desconto.get("unidade"),
 
-        "id_categoria":          categoria.get("id"),
+        "id_categoria_financeira": categoria.get("id"),
         "id_nota_fiscal":        nf.get("id"),
 
         "trib_total_icms":       trib.get("totalICMS"),
@@ -243,5 +243,23 @@ def map_pedido_venda(api_obj):
 
         "dt_carga":              now,
         "dt_atualizacao":        now,
+    }
+# endregion
+
+# region MAPEAR CATEGORIA RECEITA/DESPESA
+def map_categoria_receita_despesa(item):
+    """
+    Mapeia um item de /categorias/receitas-despesas (payload 'data'[])
+    para o formato da stage stg.categoria_receita_despesa_bling.
+    """
+    from datetime import datetime
+    now = datetime.now()
+    return {
+        "id_bling":         item.get("id"),
+        "id_categoria_pai": item.get("idCategoriaPai"),
+        "descricao":        item.get("descricao"),
+        "tipo":             item.get("tipo"),
+        "dt_carga":         now,
+        "dt_atualizacao":   now
     }
 # endregion

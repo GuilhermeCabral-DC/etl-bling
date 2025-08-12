@@ -289,3 +289,26 @@ class BlingAPI:
             log_etl("PEDIDOS_VENDAS", "ERRO", f"Erro inesperado no pedido {id_pedido_venda}", erro=str(e))
             return None
 # endregion
+
+# region ============= CATEGORIAS: RECEITAS/DESPESAS (LISTA/PAGINADO) =============
+    def get_categorias_rec_desp_ids_pagina(self, pagina: int, limit: int = 100):
+        """
+        Retorna apenas os IDs da página de /categorias/receitas-despesas.
+        """
+        endpoint = "categorias/receitas-despesas"
+        params = {"pagina": pagina, "limite": limit}
+        resp = self.get(endpoint, params=params)
+        data = resp.get("data", []) if isinstance(resp, dict) else (resp or [])
+        return [item.get("id") for item in data if isinstance(item, dict) and item.get("id") is not None]
+
+    def get_categorias_rec_desp_pagina(self, pagina: int, limit: int = 100):
+        """
+        Retorna os itens completos da página (para mapear direto sem endpoint de detalhe).
+        """
+        endpoint = "categorias/receitas-despesas"
+        params = {"pagina": pagina, "limite": limit}
+        resp = self.get(endpoint, params=params)
+        return resp.get("data", []) if isinstance(resp, dict) else (resp or [])
+# endregion
+
+

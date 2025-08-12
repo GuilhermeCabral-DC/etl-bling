@@ -246,3 +246,80 @@ def janela_incremental(entidade_nome, carga_full, ultima_execucao, margem_dias, 
         dt_inicial = (ultima_execucao - timedelta(days=margem_dias)).replace(hour=0, minute=0, second=0, microsecond=0)
     return dt_inicial, dt_final
 # endregion
+
+# region GRAVA O CONTEUDO DO BUFFER E DEPOIS LIMPA
+def flush_buffer(db_uri, buffer, upsert_fn, batch_size, ent_label, log_fn):
+    """
+    Grava o conteúdo do buffer em batch e o esvazia.
+    - db_uri: conexão do Postgres
+    - buffer: list[dict] com registros já mapeados
+    - upsert_fn: função de upsert bulk (ex.: upsert_pedido_venda_bling_bulk)
+    - batch_size: tamanho do lote (int)
+    - ent_label: rótulo da entidade para logging (ex.: "PEDIDOS_VENDAS")
+    - log_fn: função de log (ex.: log_etl)
+
+    Retorna: quantidade gravada (int)
+    """
+    if not buffer:
+        return 0
+    upsert_fn(db_uri, buffer, batch_size=batch_size)
+    qtd = len(buffer)
+    log_fn(ent_label, "DB", "Batch gravado", quantidade=qtd)
+    buffer.clear()
+    return qtd
+# endregion
+
+# region ============= REPROCESSA PEDIDO DE VENDA: LISTA DE IDs (MANUAL) =============
+def reprocessa_pedidos_vendas_por_ids(lista_ids, api, db_uri, batch_size=20):
+    """
+    Reprocessa pedidos de venda por uma lista de IDs.
+    - Busca detalhe do pedido na API
+    - Mapeia (map_pedido_venda)
+    - Faz upsert em batch (upsert_pedido_venda_bling_bulk) usando flush_buffer
+    - Marca a falha como processada em conf.importacao_falha
+    """
+    from src.transformers import map_pedido_venda
+    from src.db import upsert_pedido_venda_bling_bulk
+    from src.utils import marcar_falha_como_processada, registrar_falha_importacao, flush_buffer
+    from src.log import log_etl
+
+    ENT = "PEDIDOS_VENDAS"
+    buffer = []
+    total_processados = 0
+
+    if not lista_ids:
+        log_etl(ENT, "INFO", "Nenhum ID informado para reprocessamento.")
+        return
+
+    for pid in lista_ids:
+        try:
+            det = api.get_pedido_venda_por_id(pid)
+            if det:
+                registro = map_pedido_venda(det)
+                buffer.append(registro)
+
+                if len(buffer) >= batch_size:
+                    total_processados += flush_buffer(db_uri, buffer, upsert_pedido_venda_bling_bulk, batch_size, ENT, log_etl)
+                    marcar_falha_como_processada(db_uri, "pedido_venda", pid)
+            else:
+                log_etl(ENT, "WARN", f"ID {pid} não retornou detalhe ou veio vazio.")
+                registrar_falha_importacao(
+                    db_uri=db_uri,
+                    entidade="pedido_venda",
+                    id_referencia=pid,
+                    erro="Detalhe vazio/None ao reprocessar"
+                )
+        except Exception as erro:
+            log_etl(ENT, "ERRO", f"Erro ao reprocessar pedido {pid}: {erro}")
+            registrar_falha_importacao(
+                db_uri=db_uri,
+                entidade="pedido_venda",
+                id_referencia=pid,
+                erro=str(erro)
+            )
+
+    # Flush final
+    total_processados += flush_buffer(db_uri, buffer, upsert_pedido_venda_bling_bulk, batch_size, ENT, log_etl)
+
+    log_etl(ENT, "INFO", f"Reprocessamento manual concluído. Total processados: {total_processados}")
+# endregion

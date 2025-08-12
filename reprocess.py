@@ -5,7 +5,8 @@ from src.bling_api import BlingAPI
 from src.utils import (
     reprocessa_produtos_por_ids,
     reprocessar_todas_falhas,
-    reprocessa_saldo_produtos_por_ids
+    reprocessa_saldo_produtos_por_ids,
+    reprocessa_pedidos_vendas_por_ids
 )
 from src.log import (
     log_etl
@@ -15,7 +16,8 @@ from src.config import (
     REPROCESSAR_FULL,
     REPROCESSAR_PRODUTO_MANUAL,
     REPROCESSAR_EMPRESA_MANUAL,
-    REPROCESSAR_SALDO_MANUAL
+    REPROCESSAR_SALDO_MANUAL,
+    REPROCESSAR_PEDIDOS_VENDAS_MANUAL
 )
    
 
@@ -52,4 +54,12 @@ if __name__ == "__main__":
         reprocessa_saldo_produtos_por_ids(lista_ids, api, db_uri)
 
 
+# %% ============= REPROCESSAR PEDIDOS DE VENDA MANUAL =============
+if __name__ == "__main__":
+    if REPROCESSAR_PEDIDOS_VENDAS_MANUAL:
+        lista_ids = [
+            "10514425778"
+            
+        ]
+        reprocessa_pedidos_vendas_por_ids(lista_ids, api, db_uri)
 # %%

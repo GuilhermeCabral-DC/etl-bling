@@ -14,7 +14,8 @@ from src.db import (
     upsert_vendedores_bling,
     upsert_deposito_bling_bulk,
     upsert_saldo_produto_deposito_bulk,
-    upsert_pedido_venda_bling_bulk
+    upsert_pedido_venda_bling_bulk,
+    upsert_categoria_receita_despesa_bling_bulk
 )
 from src.transformers import (
     map_empresa,
@@ -25,13 +26,15 @@ from src.transformers import (
     map_vendedores,
     map_deposito,
     map_saldo_produto_deposito,
-    map_pedido_venda
+    map_pedido_venda,
+    map_categoria_receita_despesa
 )
 from src.utils import (
     atualizar_controle_carga,
     get_ultima_data_carga,
     registrar_falha_importacao,
     get_data_periodo_incremental,
+    flush_buffer
 )
 from src.log import (
     log_etl,
@@ -43,6 +46,8 @@ from src.config import (
     DEBUG,
     MARGEM_MINUTOS_DRIFT,
     CARGA_FULL,
+    BLING_FULL_INICIO,       
+    BLING_FULL_FIM,
     DATA_FULL_INICIAL,
     MARGEM_DIAS_INCREMENTO,
     RODAR_EMPRESA,
@@ -53,7 +58,8 @@ from src.config import (
     RODAR_VENDEDOR,
     RODAR_DEPOSITOS,
     RODAR_SALDO_PRODUTO_DEPOSITO,
-    RODAR_PEDIDOS_VENDAS,    
+    RODAR_PEDIDOS_VENDAS,   
+    RODAR_CATEGORIAS_RECEITAS_DESPESAS 
 )
 
 from src.date_utils import (
@@ -559,20 +565,6 @@ else:
     log_etl("SALDO_PROD_DEP", "DESLIGADA", "Carga de saldos produto x depósito está desligada (RODAR_SALDO_PRODUTO_DEPOSITO = False)")
 
 
-# %% TESTES
-import requests
-
-url = "https://api.bling.com.br/Api/v3/estoques/saldos"
-params = {"idsProdutos[]": "16516060241"}
-headers = {
-    'Accept': 'application/json',
-    'Authorization': 'Bearer a8f68f217198bc667d35c921be8e575b6cd5f141'
-}
-
-resp = requests.get(url, headers=headers, params=params)
-print(resp.status_code)
-print(resp.url)
-print(resp.text)
 
 # %% PEDIDOS: VENDAS
 if RODAR_PEDIDOS_VENDAS:
@@ -582,36 +574,39 @@ if RODAR_PEDIDOS_VENDAS:
     tempo_inicio = time.time()
 
     try:
-        # 1) Janela incremental ou carga full (com drift)
+        # ===== FULL (fixo por janela do config) =====
         if CARGA_FULL:
-            dt_ini = DATA_FULL_INICIAL.strftime("%Y-%m-%d")
-            dt_fim = (datetime.now() - timedelta(minutes=MARGEM_MINUTOS_DRIFT)).strftime("%Y-%m-%d")
+            dt_ini = (BLING_FULL_INICIO.strftime("%Y-%m-%d")
+                    if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10])
+            dt_fim = (BLING_FULL_FIM.strftime("%Y-%m-%d")
+                    if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10])
         else:
-            # Busca última carga na tabela controle_carga
+            # ===== INCREMENTAL =====
             dt_ini, dt_fim = get_data_periodo_incremental(
                 db_uri,
-                "pedido_venda",         # entidade
-                "api_to_stg",           # etapa (mesmo usado para produtos)
-                MARGEM_DIAS_INCREMENTO, # margem_dias
-                DATA_FULL_INICIAL       # dt_inicial_full
+                "pedido_venda",
+                "api_to_stg",
+                MARGEM_DIAS_INCREMENTO,
+                DATA_FULL_INICIAL
             )
-            # Força corte no fim para evitar page drift
+            # drift mínimo: corte no fim (mas ainda só DATA, sem hora)
             dt_fim = (datetime.now() - timedelta(minutes=MARGEM_MINUTOS_DRIFT)).strftime("%Y-%m-%d")
 
+        # >>> Para pedidos de venda (fato), filtramos por data de emissão
         params_base = {
-            "dataAlteracaoInicial": f"{dt_ini}T00:00:00",
-            "dataAlteracaoFinal":   f"{dt_fim}T23:59:59"
+            "dataInicial": dt_ini,
+            "dataFinal":   dt_fim
         }
 
         if DEBUG:
-            log_etl(ENT, "DEBUG", f"Janela incremental: {params_base}")
+            log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
 
         pagina = 1
         limite = 100
         total_inseridos = 0
         buffer = []
         BATCH_SIZE = 20
-        MAX_PAGES = 3  # Limite de páginas para teste
+        MAX_PAGES = None  # opcional p/ testes
 
         while True:
             ids_pedidos = api.get_pedidos_vendas_ids_pagina(pagina, limit=limite, params=params_base)
@@ -627,64 +622,57 @@ if RODAR_PEDIDOS_VENDAS:
                 try:
                     detalhe = api.get_pedido_venda_por_id(id_ped)
                     if detalhe:
-                        registro = map_pedido_venda(detalhe)
-                        buffer.append(registro)
-
-                        # Bulk a cada 20 registros
+                        buffer.append(map_pedido_venda(detalhe))
                         if len(buffer) >= BATCH_SIZE:
-                            upsert_pedido_venda_bling_bulk(db_uri, buffer, batch_size=BATCH_SIZE)
-                            log_etl(ENT, "DB", f"Batch gravado (página {pagina})", quantidade=len(buffer))
-                            total_inseridos += len(buffer)
-                            buffer = []
+                            total_inseridos += flush_buffer(
+                                db_uri=db_uri,
+                                buffer=buffer,
+                                upsert_fn=upsert_pedido_venda_bling_bulk,
+                                batch_size=BATCH_SIZE,
+                                ent_label=ENT,
+                                log_fn=log_etl
+                            )
                     else:
-                        erro_msg = f"Pedido ID {id_ped} não retornou detalhe ou veio vazio."
                         registrar_falha_importacao(
                             db_uri=db_uri,
                             entidade="pedido_venda",
                             id_referencia=id_ped,
-                            erro=erro_msg
+                            erro=f"Pedido ID {id_ped} não retornou detalhe ou veio vazio."
                         )
                 except Exception as erro:
-                    erro_msg = f"Falha ao buscar pedido {id_ped}: {erro}"
                     registrar_falha_importacao(
                         db_uri=db_uri,
                         entidade="pedido_venda",
                         id_referencia=id_ped,
-                        erro=erro_msg
+                        erro=f"Falha ao buscar pedido {id_ped}: {erro}"
                     )
-
-                # pequeno intervalo para respeitar limites da API
                 time.sleep(0.35)
 
             log_etl(ENT, "API", f"Detalhes coletados da página {pagina}", quantidade=len(ids_pedidos))
 
-            # Controle de limite de páginas para teste
             if MAX_PAGES and pagina >= MAX_PAGES:
                 break
-
             pagina += 1
 
-        # Flush final (resto < 20)
-        if buffer:
-            upsert_pedido_venda_bling_bulk(db_uri, buffer, batch_size=BATCH_SIZE)
-            log_etl(ENT, "DB", f"Batch final gravado", quantidade=len(buffer))
-            total_inseridos += len(buffer)
-            buffer = []
+        total_inseridos += flush_buffer(
+            db_uri=db_uri,
+            buffer=buffer,
+            upsert_fn=upsert_pedido_venda_bling_bulk,
+            batch_size=BATCH_SIZE,
+            ent_label=ENT,
+            log_fn=log_etl
+        )
 
         finalizar_log_etl(db_uri, id_log, status="finalizado")
-        log_etl(ENT, "FIM",
-                "Carga finalizada",
-                tempo=(time.time() - tempo_inicio),
-                quantidade=total_inseridos)
+        log_etl(ENT, "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
 
-        # 2) Atualiza controle de carga (incremental = 'S')
         atualizar_controle_carga(
             db_uri,
             "pedido_venda",
             "stg.pedido_venda_bling",
             "api_to_stg",
             dt_ultima_carga=datetime.now().date(),
-            suporte_incremental='S'
+            suporte_incremental='S' if not CARGA_FULL else 'N'
         )
 
     except Exception as e:
@@ -692,8 +680,76 @@ if RODAR_PEDIDOS_VENDAS:
         finalizar_log_etl(db_uri, id_log, status="erro", mensagem_erro=str(e))
         raise
 else:
-    log_etl("PEDIDOS_VENDAS", "DESLIGADA",
-            "Carga de pedidos de venda está desligada (RODAR_PEDIDOS_VENDAS = False)")
+    log_etl("PEDIDOS_VENDAS", "DESLIGADA", "Carga de pedidos de venda está desligada (RODAR_PEDIDOS_VENDAS = False)")
+
+
+
+# %% CATEGORIAS RECEITAS/DESPESAS (DIMENSÃO - FULL COM LOG DETALHADO)
+if RODAR_CATEGORIAS_RECEITAS_DESPESAS:
+    ENT = "CAT_REC_DESP"
+    log_etl(ENT, "INÍCIO", "Carga de categorias de receitas/despesas iniciada")
+    id_log_cat_fin = iniciar_log_etl(db_uri, tabela="categoria_receita_despesa_bling", acao="extracao")
+    tempo_inicio = time.time()
+    try:
+        pagina = 1
+        limite = 100
+        total_inseridos = 0
+        MAX_PAGES = None  # defina 3 para teste
+
+        while True:
+            ids = api.get_categorias_rec_desp_ids_pagina(pagina, limit=limite)
+            if not ids:
+                break
+
+            if DEBUG:
+                log_etl(ENT, "DEBUG", f"Página {pagina}: {len(ids)} IDs coletados.")
+                for idx, _id in enumerate(ids, 1):
+                    log_etl(ENT, "DEBUG", f"ID {((pagina-1)*limite)+idx}: {_id}")
+
+            # Busca itens completos da mesma página e mapeia
+            itens = api.get_categorias_rec_desp_pagina(pagina, limit=limite)
+            lista_mapeada = []
+            for it in itens:
+                try:
+                    # raise Exception("Simulação de erro")  # <<< DESCOMENTE para testar falha
+                    lista_mapeada.append(map_categoria_receita_despesa(it))
+                except Exception as erro:
+                    registrar_falha_importacao(
+                        db_uri=db_uri,
+                        entidade="categoria_receita_despesa",
+                        id_referencia=it.get("id"),
+                        erro=f"Falha ao mapear categoria: {erro}"
+                    )
+
+            log_etl(ENT, "API", f"Itens coletados da página {pagina}", quantidade=len(lista_mapeada))
+
+            if lista_mapeada:
+                upsert_categoria_receita_despesa_bling_bulk(lista_mapeada, db_uri)
+                log_etl(ENT, "DB", f"Inseridos/atualizados (página {pagina})", quantidade=len(lista_mapeada))
+                total_inseridos += len(lista_mapeada)
+
+            if MAX_PAGES and pagina >= MAX_PAGES:
+                break
+            pagina += 1
+
+        finalizar_log_etl(db_uri, id_log_cat_fin, status="finalizado")
+        log_etl(ENT, "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
+
+        atualizar_controle_carga(
+            db_uri,
+            "categoria_receita_despesa",
+            "stg.categoria_receita_despesa_bling",
+            "api_to_stg",
+            dt_ultima_carga=datetime.now().date(),
+            suporte_incremental='N'
+        )
+    except Exception as e:
+        log_etl(ENT, "ERRO", erro=str(e))
+        finalizar_log_etl(db_uri, id_log_cat_fin, status="erro", mensagem_erro=str(e))
+        raise
+else:
+    log_etl("CAT_REC_DESP", "DESLIGADA", "Carga está desligada (RODAR_CATEGORIAS_RECEITAS_DESPESAS = False)")
+
 
 
 
