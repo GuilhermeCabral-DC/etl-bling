@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 
 # region ============= CONTROLE DE CARGA =============
 
-CARGA_FULL=True
-BLING_FULL_INICIO=datetime(2020,1,1)
-BLING_FULL_FIM=datetime(2020,12,31)
+CARGA_FULL = False
+BLING_FULL_INICIO=datetime(2025,7,1)
+BLING_FULL_FIM=datetime(2025,8,13)
 
 DATA_FULL_INICIAL = datetime(2020, 1, 1)
-MARGEM_DIAS_INCREMENTO = 2
+MARGEM_DIAS_INCREMENTO = 1
 
 RODAR_EMPRESA = True
 RODAR_CATEGORIA = True

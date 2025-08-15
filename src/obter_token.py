@@ -1,3 +1,4 @@
+# %%
 import requests
 import os
 import time
@@ -13,7 +14,7 @@ TOKEN_URL = os.getenv("TOKEN_URL")
 
 
 
-CODE_RECEBIDO = "6add73f8967d19c6877e20c03b91bcf8aa0bc272"  # Cole aqui o code obtido
+CODE_RECEBIDO = "e8940e28a5cadc35c116250b94aac26eb2e3ce8f"  # Cole aqui o code obtido
 
 data = {
     "grant_type": "authorization_code",
@@ -45,3 +46,5 @@ if resp.ok:
     with open("tokens.json", "w") as f:
         json.dump(tokens_json, f, indent=2)
     print("Arquivo tokens.json criado!")
+
+# %%

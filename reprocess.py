@@ -39,7 +39,7 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     if REPROCESSAR_PRODUTO_MANUAL:
         lista_ids = [
-            "16434398093",
+            "10064846793",
             
             
         ]
@@ -48,7 +48,7 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     if REPROCESSAR_SALDO_MANUAL:
         lista_ids = [
-            "8500274794",
+            "16434398051",
                         
         ]
         reprocessa_saldo_produtos_por_ids(lista_ids, api, db_uri)
@@ -58,7 +58,9 @@ if __name__ == "__main__":
 if __name__ == "__main__":
     if REPROCESSAR_PEDIDOS_VENDAS_MANUAL:
         lista_ids = [
-            "10514425778"
+            "23322006103",
+            "23322005896",
+            "23309662642"
             
         ]
         reprocessa_pedidos_vendas_por_ids(lista_ids, api, db_uri)
