@@ -75,7 +75,7 @@ api = BlingAPI(api_key)
 
 # %% EMPRESA
 
-if  RODAR_EMPRESA:
+if RODAR_EMPRESA:
     log_etl("EMPRESA", "INÍCIO", "Carga da empresa iniciada")
     id_log_empresa = iniciar_log_etl(db_uri, tabela="empresa_bling", acao="extracao")
     tempo_inicio = time.time()
@@ -91,31 +91,36 @@ if  RODAR_EMPRESA:
                 db_uri=db_uri,
                 entidade="empresa",
                 id_referencia=None,
-                erro=erro_msg
+                erro=erro_msg,
+                id_log=id_log_empresa  # <-- ID da execução
             )
             finalizar_log_etl(db_uri, id_log_empresa, status="erro", mensagem_erro=erro_msg)
             raise
 
         if DEBUG:
-            #log_etl("EMPRESA", "DEBUG", f"Dados da empresa retornados: {empresa_dict}") << Completo
-            log_etl("EMPRESA", "DEBUG", f"Dados da empresa retornados: {empresa_dict.get('id')}") # somente id
+            # log_etl("EMPRESA", "DEBUG", f"Dados da empresa retornados: {empresa_dict}") << Completo
+            log_etl("EMPRESA", "DEBUG", f"Dados da empresa retornados: {empresa_dict.get('id')}")  # somente id
 
         log_etl("EMPRESA", "API", "Dados coletados da API", quantidade=1)
 
         lista_empresas = []
         for idx, e in enumerate(empresas, 1):
             try:
+                # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
                 mapped = map_empresa(e)
                 lista_empresas.append(mapped)
             except Exception as erro:
                 erro_msg = f"Falha ao mapear empresa idx {idx}: {erro}"
-                log_etl("EMPRESA", "WARN", erro=erro_msg)
+                if DEBUG:
+                    log_etl("EMPRESA", "WARN", erro=erro_msg)
                 registrar_falha_importacao(
                     db_uri=db_uri,
                     entidade="empresa",
                     id_referencia=e.get("id"),
-                    erro=erro_msg
+                    erro=erro_msg,
+                    id_log=id_log_empresa
                 )
+
 
         if lista_empresas:
             upsert_empresa_bling_bulk(lista_empresas, db_uri)
@@ -126,19 +131,22 @@ if  RODAR_EMPRESA:
 
         # Controle de carga: sempre FULL para empresa!
         atualizar_controle_carga(
-            db_uri,
-            "empresa",
-            "stg.empresa_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            tabela_fisica="stg.empresa_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now().date(),
-            suporte_incremental='N'
+            suporte_incremental='N',
+            entidade="empresa"
         )
+
+
     except Exception as e:
         log_etl("EMPRESA", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_empresa, status="erro", mensagem_erro=str(e))
         raise
 else:
     log_etl("EMPRESA", "DESLIGADA", "Carga da empresa está desligada (RODAR_EMPRESA = False)")
+
 
 
 #%% CATEGORIA PRODUTO
@@ -151,7 +159,25 @@ if RODAR_CATEGORIA:
         categorias = api.get_all_paginated("categorias/produtos", data_path=['data'])
         log_etl("CATEGORIA", "API", "Dados coletados da API", quantidade=len(categorias))
 
-        lista_categorias = [map_categoria_produto(c) for c in categorias]
+        lista_categorias = []
+        for idx, c in enumerate(categorias, 1):
+            try:
+                # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
+                mapped = map_categoria_produto(c)
+                lista_categorias.append(mapped)
+            except Exception as erro:
+                erro_msg = f"Falha ao mapear categoria idx {idx}: {erro}"
+                if DEBUG:
+                    log_etl("CATEGORIA", "WARN", erro=erro_msg)
+                registrar_falha_importacao(
+                    db_uri=db_uri,
+                    entidade="categoria_produto",
+                    id_referencia=c.get("id"),
+                    erro=erro_msg,
+                    id_log=id_log_cat
+                )
+
+
         upsert_categoria_produto_bling_bulk(lista_categorias, db_uri)
         log_etl("CATEGORIA", "DB", "Inseridos/atualizados no banco", quantidade=len(lista_categorias))
 
@@ -173,7 +199,8 @@ else:
     log_etl("CATEGORIA", "DESLIGADA", "Carga da categoria está desligada (RODAR_CATEGORIA = False)")
 
 
-#%% GRUPO PRODUTO
+
+# %% GRUPO PRODUTO
 
 if RODAR_GRUPO_PRODUTO:
     log_etl("GRUPO PRODUTO", "INÍCIO", "Carga do grupo produto iniciada")
@@ -183,12 +210,32 @@ if RODAR_GRUPO_PRODUTO:
         grupos = api.get_all_paginated("grupos-produtos", data_path=['data'])
         log_etl("GRUPO PRODUTO", "API", "Dados coletados da API", quantidade=len(grupos))
 
-        lista_grupos = [map_grupo_produto(g) for g in grupos]
-        upsert_grupo_produto_bling_bulk(lista_grupos, db_uri)
-        log_etl("GRUPO PRODUTO", "DB", "Inseridos/atualizados no banco", quantidade=len(lista_grupos))
+        lista_grupos = []
+        for idx, g in enumerate(grupos, 1):
+            try:
+                # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
+                mapped = map_grupo_produto(g)
+                lista_grupos.append(mapped)
+            except Exception as erro:
+                erro_msg = f"Falha ao mapear grupo produto idx {idx}: {erro}"
+                if DEBUG:
+                    log_etl("GRUPO PRODUTO", "WARN", erro=erro_msg)
+                registrar_falha_importacao(
+                    db_uri=db_uri,
+                    entidade="grupo_produto",
+                    id_referencia=g.get("id"),
+                    erro=erro_msg,
+                    id_log=id_log_grupo
+                )
+
+
+        if lista_grupos:
+            upsert_grupo_produto_bling_bulk(lista_grupos, db_uri)
+            log_etl("GRUPO PRODUTO", "DB", "Inseridos/atualizados no banco", quantidade=len(lista_grupos))
 
         finalizar_log_etl(db_uri, id_log_grupo, status="finalizado")
         log_etl("GRUPO PRODUTO", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
+
         atualizar_controle_carga(
             db_uri,
             "grupo_produto",
@@ -205,7 +252,9 @@ else:
     log_etl("GRUPO PRODUTO", "DESLIGADA", "Carga da grupo produto está desligada (RODAR_GRUPO_PRODUTO = False)")
 
 
-#%% PRODUTO 
+
+
+# %% PRODUTO
 
 if RODAR_PRODUTO:
     log_etl("PRODUTOS", "INÍCIO", "Carga de produtos iniciada")
@@ -214,8 +263,7 @@ if RODAR_PRODUTO:
     try:
         params = None
         if not CARGA_FULL:
-            # Usa a função incremental, margens e data inicial do config
-            dt_inicial_full = DATA_FULL_INICIAL  # Ex: datetime(2021, 1, 1)
+            dt_inicial_full = DATA_FULL_INICIAL
             data_ini, data_fim = get_data_periodo_incremental(
                 db_uri,
                 "produto",
@@ -245,50 +293,46 @@ if RODAR_PRODUTO:
                 break
 
             if DEBUG:
-                log_etl(
-                    "PRODUTOS",
-                    "DEBUG",
-                    f"Página {pagina}: {len(ids_produtos)} IDs coletados."
-                )
+                log_etl("PRODUTOS", "DEBUG", f"Página {pagina}: {len(ids_produtos)} IDs coletados.")
 
             produtos_detalhados = []
             for idx, id_prod in enumerate(ids_produtos, 1):
                 if DEBUG:
-                    log_etl(
-                        "PRODUTOS",
-                        "DEBUG",
-                        f"ID {((pagina-1)*limite)+idx}: {id_prod}"
-                    )
-
-                resp = api.get_produto_por_id(id_prod)
-                if resp and "data" in resp:
-                    produtos_detalhados.append(resp["data"])
-                else:
-                    erro_msg = f"Produto ID {id_prod} não retornou detalhes ou veio vazio."
-                    # log_etl("PRODUTOS", "WARN", erro_msg)
+                    log_etl("PRODUTOS", "DEBUG", f"ID {((pagina-1)*limite)+idx}: {id_prod}")
+                try:
+                    # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
+                    resp = api.get_produto_por_id(id_prod)
+                    if resp and "data" in resp:
+                        produtos_detalhados.append(resp["data"])
+                    else:
+                        erro_msg = f"Produto ID {id_prod} não retornou detalhes ou veio vazio."
+                        if DEBUG:
+                            log_etl("PRODUTOS", "WARN", erro=erro_msg)
+                        registrar_falha_importacao(
+                            db_uri=db_uri,
+                            entidade="produto",
+                            id_referencia=id_prod,
+                            erro=erro_msg,
+                            id_log=id_log_prod
+                        )
+                except Exception as erro:
+                    erro_msg = f"Erro ao buscar produto ID {id_prod}: {erro}"
+                    if DEBUG:
+                        log_etl("PRODUTOS", "WARN", erro=erro_msg)
                     registrar_falha_importacao(
                         db_uri=db_uri,
                         entidade="produto",
                         id_referencia=id_prod,
-                        erro=erro_msg
+                        erro=erro_msg,
+                        id_log=id_log_prod
                     )
                 time.sleep(0.35)
 
-            log_etl(
-                "PRODUTOS",
-                "API",
-                f"IDs coletados da página {pagina}",
-                quantidade=len(produtos_detalhados)
-            )
+            log_etl("PRODUTOS", "API", f"IDs coletados da página {pagina}", quantidade=len(produtos_detalhados))
 
             produtos_mapeados = map_produtos(produtos_detalhados)
             upsert_produto_bling_bulk(db_uri, produtos_mapeados)
-            log_etl(
-                "PRODUTOS",
-                "DB",
-                f"Inseridos/atualizados no banco (página {pagina})",
-                quantidade=len(produtos_mapeados)
-            )
+            log_etl("PRODUTOS", "DB", f"Inseridos/atualizados no banco (página {pagina})", quantidade=len(produtos_mapeados))
 
             total_inseridos += len(produtos_mapeados)
             pagina_maior_data = max(
@@ -298,20 +342,14 @@ if RODAR_PRODUTO:
             if pagina_maior_data and (maior_data is None or pagina_maior_data > maior_data):
                 maior_data = pagina_maior_data
 
-            # TESTE: Limitar a 3 páginas, descomente a linha abaixo para testar:
-            # log_etl("PRODUTOS", "DEBUG", f"Interrompendo na página {pagina}")  # Só para debug manual
-            #if pagina >= 1: break
+            # TESTE: limitar a 3 páginas
+            # if pagina >= 3:
+            #     break
 
             pagina += 1
 
         finalizar_log_etl(db_uri, id_log_prod, status="finalizado")
-        log_etl(
-            "PRODUTOS",
-            "FIM",
-            "Carga finalizada",
-            tempo=(time.time() - tempo_inicio),
-            quantidade=total_inseridos
-        )
+        log_etl("PRODUTOS", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
 
         atualizar_controle_carga(
             db_uri,
@@ -320,8 +358,8 @@ if RODAR_PRODUTO:
             "api_to_stg",
             dt_ultima_carga=datetime.now().date(),
             suporte_incremental='S'
-        
         )
+
     except Exception as e:
         log_etl("PRODUTOS", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_prod, status="erro", mensagem_erro=str(e))
@@ -330,7 +368,8 @@ else:
     log_etl("PRODUTOS", "DESLIGADA", "Carga de produtos está desligada (RODAR_PRODUTO = False)")
 
 
-#%% CANAIS VENDA
+
+# %% CANAIS VENDA
 
 if RODAR_CANAIS_VENDA:
     log_etl("CANAIS VENDA", "INÍCIO", "Carga de canais venda iniciada")
@@ -340,7 +379,7 @@ if RODAR_CANAIS_VENDA:
         if DEBUG:
             log_etl("CANAIS VENDA", "DEBUG", "Buscando canais de venda via API Bling")
         canais_venda = api.get_all_paginated("canais-venda", data_path=['data'])
-        
+
         if DEBUG:
             log_etl("CANAIS VENDA", "DEBUG", f"Total canais recebidos: {len(canais_venda)}")
             for idx, c in enumerate(canais_venda, 1):
@@ -348,10 +387,27 @@ if RODAR_CANAIS_VENDA:
 
         log_etl("CANAIS VENDA", "API", "Dados coletados da API", quantidade=len(canais_venda))
 
-        lista_canais_venda = [map_canais_venda(c) for c in canais_venda]
-        upsert_canais_venda_bling_bulk(lista_canais_venda, db_uri)
+        lista_canais_venda = []
+        for idx, c in enumerate(canais_venda, 1):
+            try:
+                # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
+                mapped = map_canais_venda(c)
+                lista_canais_venda.append(mapped)
+            except Exception as erro:
+                erro_msg = f"Falha ao mapear canal venda idx {idx}: {erro}"
+                if DEBUG:
+                    log_etl("CANAIS VENDA", "WARN", erro=erro_msg)
+                registrar_falha_importacao(
+                    db_uri=db_uri,
+                    entidade="canais_venda",
+                    id_referencia=c.get("id"),
+                    erro=erro_msg,
+                    id_log=id_log_cat
+                )
 
-        log_etl("CANAIS VENDA", "DB", "Inseridos/atualizados no banco", quantidade=len(lista_canais_venda))
+        if lista_canais_venda:
+            upsert_canais_venda_bling_bulk(lista_canais_venda, db_uri)
+            log_etl("CANAIS VENDA", "DB", "Inseridos/atualizados no banco", quantidade=len(lista_canais_venda))
 
         finalizar_log_etl(db_uri, id_log_cat, status="finalizado")
         log_etl("CANAIS VENDA", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
@@ -368,36 +424,50 @@ if RODAR_CANAIS_VENDA:
         log_etl("CANAIS VENDA", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_cat, status="erro", mensagem_erro=str(e))
         registrar_falha_importacao(
-            db_uri,
+            db_uri=db_uri,
             entidade="canais_venda",
             id_referencia=None,
-            erro=str(e)
+            erro=str(e),
+            id_log=id_log_cat
         )
         raise
 else:
     log_etl("CANAIS VENDA", "DESLIGADA", "Carga da canais venda está desligada (RODAR_CANAIS_VENDA = False)")
 
 
-#%%VENDEDORES
+
+
+# %% VENDEDORES
 
 if RODAR_VENDEDOR:
     log_etl("VENDEDORES", "INÍCIO", "Carga de vendedores iniciada")
     id_log_vend = iniciar_log_etl(db_uri, tabela="vendedor_bling", acao="extracao")
     tempo_inicio = time.time()
     try:
-        # 1. Buscar todos os IDs (etapa paginada)
         tempo_busca_ids = time.time()
         ids_vendedores = api.get_all_vendedores_ids()
         tempo_ids = time.time() - tempo_busca_ids
 
-        # 2. Buscar os detalhes de cada vendedor
         vendedores_detalhados = []
         for id_vend in ids_vendedores:
-            json = api.get_vendedor_por_id(id_vend)
-            if json:
-                registro = map_vendedores(json)
-                if registro:
-                    vendedores_detalhados.append(registro)
+            try:
+                # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
+                json = api.get_vendedor_por_id(id_vend)
+                if json:
+                    registro = map_vendedores(json)
+                    if registro:
+                        vendedores_detalhados.append(registro)
+            except Exception as erro:
+                erro_msg = f"Falha ao processar vendedor id {id_vend}: {erro}"
+                if DEBUG:
+                    log_etl("VENDEDORES", "WARN", erro=erro_msg)
+                registrar_falha_importacao(
+                    db_uri=db_uri,
+                    entidade="vendedor",
+                    id_referencia=id_vend,
+                    erro=erro_msg,
+                    id_log=id_log_vend
+                )
 
         log_etl("VENDEDORES", "API", "Dados detalhados coletados da API", quantidade=len(vendedores_detalhados))
 
@@ -406,6 +476,7 @@ if RODAR_VENDEDOR:
 
         finalizar_log_etl(db_uri, id_log_vend, status="finalizado")
         log_etl("VENDEDORES", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
+
         atualizar_controle_carga(
             db_uri,
             "vendedores",
@@ -422,6 +493,7 @@ else:
     log_etl("VENDEDORES", "DESLIGADA", "Carga de vendedores está desligada (RODAR_VENDEDOR = False)")
 
 
+
 # %% DEPOSITOS
 
 if RODAR_DEPOSITOS:
@@ -429,7 +501,6 @@ if RODAR_DEPOSITOS:
     id_log_deposito = iniciar_log_etl(db_uri, tabela="deposito_bling", acao="extracao")
     tempo_inicio = time.time()
     try:
-        # Depósito é carga FULL!
         try:
             depositos_resp = api.get_depositos()
             depositos = depositos_resp if isinstance(depositos_resp, list) else [depositos_resp]
@@ -440,7 +511,8 @@ if RODAR_DEPOSITOS:
                 db_uri=db_uri,
                 entidade="depositos",
                 id_referencia=None,
-                erro=erro_msg
+                erro=erro_msg,
+                id_log=id_log_deposito
             )
             finalizar_log_etl(db_uri, id_log_deposito, status="erro", mensagem_erro=erro_msg)
             raise
@@ -454,16 +526,19 @@ if RODAR_DEPOSITOS:
         lista_depositos = []
         for idx, d in enumerate(depositos, 1):
             try:
+                # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
                 mapped = map_deposito(d)
                 lista_depositos.append(mapped)
             except Exception as erro:
                 erro_msg = f"Falha ao mapear deposito idx {idx}: {erro}"
-                log_etl("DEPOSITOS", "WARN", erro=erro_msg)
+                if DEBUG:
+                    log_etl("DEPOSITOS", "WARN", erro=erro_msg)
                 registrar_falha_importacao(
                     db_uri=db_uri,
                     entidade="depositos",
                     id_referencia=d.get("id"),
-                    erro=erro_msg
+                    erro=erro_msg,
+                    id_log=id_log_deposito
                 )
 
         if lista_depositos:
@@ -473,7 +548,6 @@ if RODAR_DEPOSITOS:
         finalizar_log_etl(db_uri, id_log_deposito, status="finalizado")
         log_etl("DEPOSITOS", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
 
-        # Controle de carga: FULL!
         atualizar_controle_carga(
             db_uri,
             "depositos",
@@ -488,6 +562,7 @@ if RODAR_DEPOSITOS:
         raise
 else:
     log_etl("DEPOSITOS", "DESLIGADA", "Carga de depósitos está desligada (RODAR_DEPOSITOS = False)")
+
 # %% PRODUTO SALDO
 
 if RODAR_SALDO_PRODUTO_DEPOSITO:
@@ -512,24 +587,31 @@ if RODAR_SALDO_PRODUTO_DEPOSITO:
                 if DEBUG:
                     log_etl("SALDO_PROD_DEP", "DEBUG", f"ID {((pagina-1)*limite)+idx}: {id_prod}")
                 try:
+                    # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
                     saldo_data = api.get_saldo_produto_por_id(id_prod)
                     if saldo_data:
                         registros_batch.extend(map_saldo_produto_deposito(saldo_data))
                     else:
                         erro_msg = f"Produto ID {id_prod} não retornou saldo ou veio vazio."
+                        if DEBUG:
+                            log_etl("SALDO_PROD_DEP", "WARN", erro=erro_msg)
                         registrar_falha_importacao(
                             db_uri=db_uri,
                             entidade="saldo_produto_deposito",
                             id_referencia=id_prod,
-                            erro=erro_msg
+                            erro=erro_msg,
+                            id_log=id_log_saldo
                         )
                 except Exception as erro:
                     erro_msg = f"Falha ao buscar saldo do produto {id_prod}: {erro}"
+                    if DEBUG:
+                        log_etl("SALDO_PROD_DEP", "WARN", erro=erro_msg)
                     registrar_falha_importacao(
                         db_uri=db_uri,
                         entidade="saldo_produto_deposito",
                         id_referencia=id_prod,
-                        erro=erro_msg
+                        erro=erro_msg,
+                        id_log=id_log_saldo
                     )
                 time.sleep(0.35)
 
@@ -538,13 +620,7 @@ if RODAR_SALDO_PRODUTO_DEPOSITO:
             log_etl("SALDO_PROD_DEP", "DB", f"Inseridos/atualizados no banco (página {pagina})", quantidade=len(registros_batch))
 
             total_inseridos += len(registros_batch)
-
             pagina += 1  # <--- incremento sempre após processar a página!
-
-            # TESTE: Limitar a 2 páginas (processa páginas 1 e 2, depois para)
-            """ if pagina > 2:
-                log_etl("SALDO_PROD_DEP", "DEBUG", f"Interrompendo na página {pagina-1}")  # Loga a página final processada
-                break """
 
         finalizar_log_etl(db_uri, id_log_saldo, status="finalizado")
         log_etl("SALDO_PROD_DEP", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
@@ -566,6 +642,7 @@ else:
 
 
 
+
 # %% PEDIDOS: VENDAS
 if RODAR_PEDIDOS_VENDAS:
     ENT = "PEDIDOS_VENDAS"
@@ -574,14 +651,12 @@ if RODAR_PEDIDOS_VENDAS:
     tempo_inicio = time.time()
 
     try:
-        # ===== FULL (fixo por janela do config) =====
         if CARGA_FULL:
             dt_ini = (BLING_FULL_INICIO.strftime("%Y-%m-%d")
                     if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10])
             dt_fim = (BLING_FULL_FIM.strftime("%Y-%m-%d")
                     if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10])
         else:
-            # ===== INCREMENTAL =====
             dt_ini, dt_fim = get_data_periodo_incremental(
                 db_uri,
                 "pedido_venda",
@@ -589,10 +664,8 @@ if RODAR_PEDIDOS_VENDAS:
                 MARGEM_DIAS_INCREMENTO,
                 DATA_FULL_INICIAL
             )
-            # drift mínimo: corte no fim (mas ainda só DATA, sem hora)
             dt_fim = (datetime.now() - timedelta(minutes=MARGEM_MINUTOS_DRIFT)).strftime("%Y-%m-%d")
 
-        # >>> Para pedidos de venda (fato), filtramos por data de emissão
         params_base = {
             "dataInicial": dt_ini,
             "dataFinal":   dt_fim
@@ -620,6 +693,7 @@ if RODAR_PEDIDOS_VENDAS:
                 if DEBUG:
                     log_etl(ENT, "DEBUG", f"ID {((pagina-1)*limite)+idx}: {id_ped}")
                 try:
+                    # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO
                     detalhe = api.get_pedido_venda_por_id(id_ped)
                     if detalhe:
                         buffer.append(map_pedido_venda(detalhe))
@@ -633,18 +707,26 @@ if RODAR_PEDIDOS_VENDAS:
                                 log_fn=log_etl
                             )
                     else:
+                        erro_msg = f"Pedido ID {id_ped} não retornou detalhe ou veio vazio."
+                        if DEBUG:
+                            log_etl(ENT, "WARN", erro=erro_msg)
                         registrar_falha_importacao(
                             db_uri=db_uri,
                             entidade="pedido_venda",
                             id_referencia=id_ped,
-                            erro=f"Pedido ID {id_ped} não retornou detalhe ou veio vazio."
+                            erro=erro_msg,
+                            id_log=id_log
                         )
                 except Exception as erro:
+                    erro_msg = f"Falha ao buscar pedido {id_ped}: {erro}"
+                    if DEBUG:
+                        log_etl(ENT, "WARN", erro=erro_msg)
                     registrar_falha_importacao(
                         db_uri=db_uri,
                         entidade="pedido_venda",
                         id_referencia=id_ped,
-                        erro=f"Falha ao buscar pedido {id_ped}: {erro}"
+                        erro=erro_msg,
+                        id_log=id_log
                     )
                 time.sleep(0.35)
 
@@ -684,6 +766,7 @@ else:
 
 
 
+
 # %% CATEGORIAS RECEITAS/DESPESAS (DIMENSÃO - FULL COM LOG DETALHADO)
 if RODAR_CATEGORIAS_RECEITAS_DESPESAS:
     ENT = "CAT_REC_DESP"
@@ -714,11 +797,15 @@ if RODAR_CATEGORIAS_RECEITAS_DESPESAS:
                     # raise Exception("Simulação de erro")  # <<< DESCOMENTE para testar falha
                     lista_mapeada.append(map_categoria_receita_despesa(it))
                 except Exception as erro:
+                    erro_msg = f"Falha ao mapear categoria: {erro}"
+                    if DEBUG:
+                        log_etl(ENT, "WARN", erro=erro_msg)
                     registrar_falha_importacao(
                         db_uri=db_uri,
                         entidade="categoria_receita_despesa",
                         id_referencia=it.get("id"),
-                        erro=f"Falha ao mapear categoria: {erro}"
+                        erro=erro_msg,
+                        id_log=id_log_cat_fin
                     )
 
             log_etl(ENT, "API", f"Itens coletados da página {pagina}", quantidade=len(lista_mapeada))
@@ -749,6 +836,7 @@ if RODAR_CATEGORIAS_RECEITAS_DESPESAS:
         raise
 else:
     log_etl("CAT_REC_DESP", "DESLIGADA", "Carga está desligada (RODAR_CATEGORIAS_RECEITAS_DESPESAS = False)")
+
 
 
 

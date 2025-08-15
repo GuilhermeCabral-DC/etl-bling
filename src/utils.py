@@ -10,17 +10,18 @@ from src.log import (log_etl,)
 # endregion
 
 # region DEFINE DATA INICIAL E FINAL DO INCREMENTAL
-def get_data_periodo_incremental(db_uri, entidade, etapa, margem_dias, dt_inicial_full):
-    dt_ultima_carga = get_ultima_data_carga(db_uri, entidade, etapa)
+def get_data_periodo_incremental(db_uri, tabela_fisica, etapa, margem_dias, dt_inicial_full):
+    dt_ultima_carga = get_ultima_data_carga(db_uri, tabela_fisica, etapa)
     if dt_ultima_carga:
         dt_inicio = dt_ultima_carga - timedelta(days=margem_dias)
     else:
-        dt_inicio = dt_inicial_full  # ou uma data bem antiga (primeiro registro do sistema)
+        dt_inicio = dt_inicial_full
     dt_fim = datetime.now()
     return (
         dt_inicio.strftime("%Y-%m-%d"),
         dt_fim.strftime("%Y-%m-%d")
     )
+
 # endregion
 
 # region REPROCESSA FULL
@@ -100,20 +101,22 @@ def marcar_falha_como_processada(db_uri, entidade, id_referencia):
 # endregion
 
 # region INSERE FALHAS DE IMPORTACAO NA TABELA conf.importacao_falha
-def registrar_falha_importacao(db_uri, entidade, id_referencia, erro):
+def registrar_falha_importacao(db_uri, entidade, id_referencia, erro, id_log=None):
     conn = psycopg2.connect(db_uri)
     with conn:
         with conn.cursor() as cur:
             cur.execute("""
-                INSERT INTO conf.importacao_falha (entidade, id_referencia, erro)
-                VALUES (%s, %s, %s)
-            """, (entidade, str(id_referencia), erro))
+                INSERT INTO conf.log_detalhes (entidade, id_referencia, erro, id_log)
+                VALUES (%s, %s, %s, %s)
+            """, (entidade, str(id_referencia), erro, id_log))
+
 # endregion
 
 # region CONTROLE DE CARGA
-def atualizar_controle_carga(db_uri, entidade, tabela_fisica, etapa, dt_ultima_carga, suporte_incremental='N'):
+def atualizar_controle_carga(db_uri, tabela_fisica, etapa, dt_ultima_carga, suporte_incremental='N', entidade=None):
     """
-    Insere ou atualiza o controle de carga para entidade+tabela+etapa.
+    Insere ou atualiza o controle de carga com base em tabela_fisica + etapa.
+    'entidade' é opcional, usada apenas como tag organizacional.
     """
     conn = psycopg2.connect(db_uri)
     with conn:
@@ -123,25 +126,28 @@ def atualizar_controle_carga(db_uri, entidade, tabela_fisica, etapa, dt_ultima_c
                     (entidade, tabela_fisica, etapa, dt_ultima_carga, suporte_incremental)
                 VALUES 
                     (%s, %s, %s, %s, %s)
-                ON CONFLICT (entidade, tabela_fisica, etapa) DO UPDATE
+                ON CONFLICT (tabela_fisica, etapa) DO UPDATE
                    SET dt_ultima_carga = EXCLUDED.dt_ultima_carga,
-                       suporte_incremental = EXCLUDED.suporte_incremental;
+                       suporte_incremental = EXCLUDED.suporte_incremental,
+                       entidade = EXCLUDED.entidade;
             """
             cur.execute(sql, (entidade, tabela_fisica, etapa, dt_ultima_carga, suporte_incremental))
 
-def get_ultima_data_carga(db_uri, entidade, etapa):
+
+
+def get_ultima_data_carga(db_uri, tabela_fisica, etapa):
+    query = """
+        SELECT dt_ultima_carga
+          FROM conf.controle_carga
+         WHERE tabela_fisica = %s
+           AND etapa = %s
+         LIMIT 1
     """
-    Retorna a última data de carga registrada para entidade+etapa.
-    """
-    conn = psycopg2.connect(db_uri)
-    with conn:
+    with psycopg2.connect(db_uri) as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT dt_ultima_carga FROM conf.controle_carga
-                WHERE entidade = %s AND etapa = %s
-            """, (entidade, etapa))
-            row = cur.fetchone()
-            return row[0] if row else None
+            cur.execute(query, (tabela_fisica, etapa))
+            result = cur.fetchone()
+            return result[0] if result else None
 # endregion
 
 # region UTILITÁRIOS DE DATA/PERÍODOS
