@@ -112,48 +112,42 @@ class BlingAPI:
 
 # region ============= VENDEDORES: BUSCA IDS (PAGINADO) =============
 
-    def get_all_vendedores_ids(self, limit=100, params=None):
+    def get_vendedores_ids_pagina(self, pagina: int, limit: int = 100, params: dict | None = None):
         """
-        Busca todos os IDs dos vendedores usando paginação no endpoint /vendedores.
+        Busca os IDs dos vendedores de UMA página da API do Bling.
         """
         endpoint = "vendedores"
-        page = 1
-        ids = []
-        while True:
-            page_params = params.copy() if params else {}
-            page_params["limit"] = limit
-            page_params["page"] = page
-            try:
-                resp = self.get(endpoint, params=page_params)
-            except requests.exceptions.HTTPError as err:
-                if err.response.status_code == 404:
-                    break
-                raise
-            data = resp.get("data", None)
-            if data is None or not data:
-                break
-            ids_page = [item["id"] for item in data if isinstance(item, dict) and "id" in item]
-            ids.extend(ids_page)
-            if len(data) < limit:
-                break
-            page += 1
-        return ids
+        page_params = (params or {}).copy()
+        page_params["limite"] = limit
+        page_params["pagina"] = pagina
+
+        try:
+            resp = self.get(endpoint, params=page_params)
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 404:
+                return []
+            raise
+
+        data = (
+            resp["data"]
+            if isinstance(resp, dict) and "data" in resp and isinstance(resp["data"], list)
+            else resp if isinstance(resp, list)
+            else []
+        )
+        return [item["id"] for item in data if isinstance(item, dict) and "id" in item]
+
 # endregion
 
 # region ============= VENDEDOR: DETALHE POR ID =============
 
     def get_vendedor_por_id(self, id_vendedor):
-        """
-        Retorna os detalhes de um vendedor específico pelo ID.
-        """
         endpoint = f"vendedores/{id_vendedor}"
         try:
             response = self.get(endpoint)
-            return response.get("data", None)
-        except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 404:
-                return None  # ID não encontrado
-            raise
+            return response
+        except Exception as e:
+            log_etl("VENDEDORES", "ERRO", f"Erro ao buscar detalhe do vendedor {id_vendedor}", erro=str(e))
+            return None
 # endregion
 
 # region ============= PRODUTO: BUSCA IDS (PAGINADO) =============
@@ -190,7 +184,6 @@ class BlingAPI:
         endpoint = f"produtos/{id_produto}"
         try:
             response = self.get(endpoint)
-            # log_etl("PRODUTOS", "DEBUG", f"Detalhe retornado para ID {id_produto}: {response}")
             return response
         except Exception as e:
             log_etl("PRODUTOS", "ERRO", f"Erro ao buscar detalhe do produto {id_produto}", erro=str(e))

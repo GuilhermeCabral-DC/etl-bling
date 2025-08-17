@@ -112,9 +112,9 @@ def upsert_canais_venda_bling_bulk(lista_de_dicts, db_uri):
 # endregion
 
 # region VENDEDOR
-def upsert_vendedores_bling(db_uri, lista_vendedores):
+def upsert_vendedores_bling_bulk(db_uri, lista_vendedores, batch_size=100):
     """
-    Insere ou atualiza registros de vendedores na tabela stg.vendedor.
+    Insere ou atualiza registros de vendedores na tabela stg.vendedor_bling.
     """
     if not lista_vendedores:
         return
@@ -145,20 +145,30 @@ def upsert_vendedores_bling(db_uri, lista_vendedores):
 
     with psycopg2.connect(db_uri) as conn:
         with conn.cursor() as cur:
-            psycopg2.extras.execute_values(
-                cur, query,
-                [(
-                    v["id_bling"],
-                    v["vl_desconto_limite"],
-                    v["id_loja"],
-                    v["id_contato"],
-                    v["nome_contato"],
-                    v["situacao_contato"],
-                    psycopg2.extras.Json(v["comissoes"]),
-                    v["dt_carga"],
-                    v["dt_atualizacao"]
-                ) for v in lista_vendedores]
-            )
+            agora = datetime.now()
+            total = len(lista_vendedores)
+            for i in range(0, total, batch_size):
+                batch = lista_vendedores[i:i+batch_size]
+                psycopg2.extras.execute_values(
+                    cur, query,
+                    [(
+                        v["id_bling"],
+                        v["vl_desconto_limite"],
+                        v["id_loja"],
+                        v["id_contato"],
+                        v["nome_contato"],
+                        v["situacao_contato"],
+                        psycopg2.extras.Json(v["comissoes"]),
+                        v["dt_carga"],
+                        v["dt_atualizacao"]
+                    ) for v in batch]
+                )
+                if DEBUG:
+                    log_etl(
+                        "VENDEDORES",
+                        "DEBUG",
+                        f"Batch {i//batch_size + 1}: {len(batch)} vendedores inseridos/atualizados."
+                    )
 # endregion
 
 # region PRODUTO (FULL OU INCREMENTAL)

@@ -1,6 +1,6 @@
 # region IMPORTS
 import psycopg2
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from src.transformers import map_produtos, map_saldo_produto_deposito
 from src.db import upsert_produto_bling_bulk, upsert_saldo_produto_deposito_bulk
 from src.date_utils import parse_date_safe
@@ -10,19 +10,22 @@ from src.log import (log_etl,)
 # endregion
 
 # region DEFINE DATA INICIAL E FINAL DO INCREMENTAL
-def get_data_periodo_incremental(db_uri, tabela_fisica, etapa, margem_dias, dt_inicial_full):
+def get_data_periodo_incremental(db_uri, tabela_fisica, etapa, margem_dias, data_full_inicial):
+    """
+    Retorna (dt_ini, dt_fim) como strings formatadas no padrão 'YYYY-MM-DD'.
+    """
     dt_ultima_carga = get_ultima_data_carga(db_uri, tabela_fisica, etapa)
-    if dt_ultima_carga:
-        dt_inicio = dt_ultima_carga - timedelta(days=margem_dias)
-    else:
-        dt_inicio = dt_inicial_full
-    dt_fim = datetime.now()
-    return (
-        dt_inicio.strftime("%Y-%m-%d"),
-        dt_fim.strftime("%Y-%m-%d")
+
+    dt_ini, dt_fim = janela_incremental(
+        carga_full=False,
+        ultima_execucao=dt_ultima_carga,
+        margem_dias=margem_dias,
+        data_full_inicial=data_full_inicial
     )
 
+    return dt_ini.strftime("%Y-%m-%d"), dt_fim.strftime("%Y-%m-%d")
 # endregion
+
 
 # region REPROCESSA FULL
 def reprocessar_todas_falhas(api, db_uri):
@@ -240,18 +243,24 @@ def format_bling_datetime(dt):
 # endregion
 
 # region JANELA INCREMENTAL
-def janela_incremental(entidade_nome, carga_full, ultima_execucao, margem_dias, margem_minutos_drift):
+def janela_incremental(carga_full, ultima_execucao, margem_dias, data_full_inicial):
     """
-    Retorna (dt_inicial, dt_final) já aplicando margens e corte no 'agora - drift'.
+    Retorna (dt_inicial, dt_final) como datetime, cortando dt_final até o fim do dia anterior.
     """
     agora = datetime.now()
-    dt_final = agora - timedelta(minutes=MARGEM_MINUTOS_DRIFT)
+    dt_final = (agora - timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=0)
+
     if carga_full or not ultima_execucao:
-        dt_inicial = DATA_FULL_INICIAL
+        dt_inicial = data_full_inicial
     else:
+        # Garantir que ultima_execucao seja datetime
+        if isinstance(ultima_execucao, date) and not isinstance(ultima_execucao, datetime):
+            ultima_execucao = datetime.combine(ultima_execucao, datetime.min.time())
         dt_inicial = (ultima_execucao - timedelta(days=margem_dias)).replace(hour=0, minute=0, second=0, microsecond=0)
+
     return dt_inicial, dt_final
 # endregion
+
 
 # region GRAVA O CONTEUDO DO BUFFER E DEPOIS LIMPA
 def flush_buffer(db_uri, buffer, upsert_fn, batch_size, ent_label, log_fn):

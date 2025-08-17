@@ -112,25 +112,31 @@ def map_canais_venda(data):
 # endregion
 
 # region MAPEAR VENDEDORES
-def map_vendedores(json_vendedor):
+def map_vendedores(lista_detalhes):
     """
-    Transforma o JSON de /vendedores/{id} no formato da tabela stg.vendedor_bling.
+    Transforma uma lista de vendedores detalhados da API do Bling
+    para o formato compatível com a tabela stg.vendedor_bling.
     """
-    if not json_vendedor:
-        return None
+    vendedores = []
+    for item in lista_detalhes:
+        if not item or not item.get("id"):
+            continue
 
-    return {
-        "id_bling": json_vendedor.get("id"),
-        "vl_desconto_limite": json_vendedor.get("descontoLimite"),
-        "id_loja": json_vendedor.get("loja", {}).get("id"),
-        "id_contato": json_vendedor.get("contato", {}).get("id"),
-        "nome_contato": json_vendedor.get("contato", {}).get("nome"),
-        "situacao_contato": json_vendedor.get("contato", {}).get("situacao"),
-        "comissoes": json_vendedor.get("comissoes", []),
-        "dt_carga": datetime.now(),
-        "dt_atualizacao": parse_date_safe(json_vendedor.get("dataAlteracaoFinal"))
-    }
+        vendedores.append({
+            "id_bling": item.get("id"),
+            "vl_desconto_limite": item.get("descontoLimite"),
+            "id_loja": item.get("loja", {}).get("id"),
+            "id_contato": item.get("contato", {}).get("id"),
+            "nome_contato": item.get("contato", {}).get("nome"),
+            "situacao_contato": item.get("contato", {}).get("situacao"),
+            "comissoes": item.get("comissoes", []),  # campo jsonb
+            "dt_carga": datetime.now(),
+            "dt_atualizacao": parse_date_safe(item.get("dataAlteracaoFinal"))
+        })
+
+    return vendedores
 # endregion
+
 
 # region UTILITÁRIO: DATA SEGURA
 def _safe_date(data_str):

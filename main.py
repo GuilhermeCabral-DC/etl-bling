@@ -11,7 +11,7 @@ from src.db import (
     upsert_grupo_produto_bling_bulk,
     upsert_produto_bling_bulk,
     upsert_canais_venda_bling_bulk,
-    upsert_vendedores_bling,
+    upsert_vendedores_bling_bulk,
     upsert_deposito_bling_bulk,
     upsert_saldo_produto_deposito_bulk,
     upsert_pedido_venda_bling_bulk,
@@ -184,13 +184,14 @@ if RODAR_CATEGORIA:
         finalizar_log_etl(db_uri, id_log_cat, status="finalizado")
         log_etl("CATEGORIA", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
         atualizar_controle_carga(
-            db_uri,
-            "categoria_produto",
-            "stg.categoria_produto_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="produto",
+            tabela_fisica="stg.categoria_produto_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now(),
             suporte_incremental='N'
         )
+
     except Exception as e:
         log_etl("CATEGORIA", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_cat, status="erro", mensagem_erro=str(e))
@@ -237,13 +238,14 @@ if RODAR_GRUPO_PRODUTO:
         log_etl("GRUPO PRODUTO", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
 
         atualizar_controle_carga(
-            db_uri,
-            "grupo_produto",
-            "stg.grupo_produto_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="produto",
+            tabela_fisica="stg.grupo_produto_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now(),
             suporte_incremental='N'
         )
+
     except Exception as e:
         log_etl("GRUPO PRODUTO", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_grupo, status="erro", mensagem_erro=str(e))
@@ -254,33 +256,33 @@ else:
 
 
 
-# %% PRODUTO
+# %% PRODUTO ===== (INCREMENTAL)
 
 if RODAR_PRODUTO:
     log_etl("PRODUTOS", "INÍCIO", "Carga de produtos iniciada")
     id_log_prod = iniciar_log_etl(db_uri, tabela="produtos_bling", acao="extracao")
     tempo_inicio = time.time()
     try:
-        params = None
-        if not CARGA_FULL:
-            dt_inicial_full = DATA_FULL_INICIAL
-            data_ini, data_fim = get_data_periodo_incremental(
+        if CARGA_FULL:
+            dt_ini = BLING_FULL_INICIO.strftime("%Y-%m-%d") if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10]
+            dt_fim = BLING_FULL_FIM.strftime("%Y-%m-%d") if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10]
+        else:
+            dt_ini, dt_fim = get_data_periodo_incremental(
                 db_uri,
-                "produto",
+                "stg.produto_bling",
                 "api_to_stg",
                 MARGEM_DIAS_INCREMENTO,
-                dt_inicial_full
+                DATA_FULL_INICIAL
             )
-            params = {
-                "dataAlteracaoInicial": data_ini,
-                "dataAlteracaoFinal": data_fim
-            }
-            if DEBUG:
-                log_etl(
-                    "PRODUTOS",
-                    "DEBUG",
-                    f"Incremental - dt_ultima_carga: {get_ultima_data_carga(db_uri, 'produto', 'api_to_stg')}, dataAlteracaoInicial: {data_ini}, dataAlteracaoFinal: {data_fim}"
-                )
+
+        params_base = {
+            "dataInicial": dt_ini,
+            "dataFinal": dt_fim
+}
+
+
+        if DEBUG:
+            log_etl("PRODUTOS", "DEBUG", f"Janela usada: {params_base}")
 
         pagina = 1
         limite = 100
@@ -288,7 +290,13 @@ if RODAR_PRODUTO:
         maior_data = None
 
         while True:
-            ids_produtos = api.get_produtos_ids_pagina(pagina, limit=limite, params=params)
+    # TRADUÇÃO dos parâmetros de log para os nomes esperados pela API
+            params_api = {
+                "dataAlteracaoInicial": params_base["dataInicial"],
+                "dataAlteracaoFinal": params_base["dataFinal"]
+            }
+
+            ids_produtos = api.get_produtos_ids_pagina(pagina, limit=limite, params=params_api)
             if not ids_produtos:
                 break
 
@@ -352,13 +360,14 @@ if RODAR_PRODUTO:
         log_etl("PRODUTOS", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
 
         atualizar_controle_carga(
-            db_uri,
-            "produto",
-            "stg.produto_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="produto",
+            tabela_fisica="stg.produto_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now().date(),
             suporte_incremental='S'
         )
+
 
     except Exception as e:
         log_etl("PRODUTOS", "ERRO", erro=str(e))
@@ -413,13 +422,14 @@ if RODAR_CANAIS_VENDA:
         log_etl("CANAIS VENDA", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
 
         atualizar_controle_carga(
-            db_uri,
-            "canais_venda",
-            "stg.canais_venda_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="canais_venda",
+            tabela_fisica="stg.canais_venda_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now(),
             suporte_incremental='N'
         )
+
     except Exception as e:
         log_etl("CANAIS VENDA", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_cat, status="erro", mensagem_erro=str(e))
@@ -437,60 +447,123 @@ else:
 
 
 
-# %% VENDEDORES
+# %% VENDEDORES ===== (INCREMENTAL)
 
 if RODAR_VENDEDOR:
-    log_etl("VENDEDORES", "INÍCIO", "Carga de vendedores iniciada")
+    ENT = "VENDEDOR"
+    log_etl(ENT, "INÍCIO", "Carga de vendedores iniciada")
     id_log_vend = iniciar_log_etl(db_uri, tabela="vendedor_bling", acao="extracao")
     tempo_inicio = time.time()
+
     try:
-        tempo_busca_ids = time.time()
-        ids_vendedores = api.get_all_vendedores_ids()
-        tempo_ids = time.time() - tempo_busca_ids
+        if CARGA_FULL:
+            dt_ini = BLING_FULL_INICIO.strftime("%Y-%m-%d") if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10]
+            dt_fim = BLING_FULL_FIM.strftime("%Y-%m-%d") if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10]
+        else:
+            dt_ini, dt_fim = get_data_periodo_incremental(
+                db_uri,
+                "stg.vendedor_bling",
+                "api_to_stg",
+                MARGEM_DIAS_INCREMENTO,
+                DATA_FULL_INICIAL
+            )
 
-        vendedores_detalhados = []
-        for id_vend in ids_vendedores:
-            try:
-                # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO.
-                json = api.get_vendedor_por_id(id_vend)
-                if json:
-                    registro = map_vendedores(json)
-                    if registro:
-                        vendedores_detalhados.append(registro)
-            except Exception as erro:
-                erro_msg = f"Falha ao processar vendedor id {id_vend}: {erro}"
+        # Parâmetros legíveis para o log
+        params_base = {
+            "dataInicial": dt_ini,
+            "dataFinal": dt_fim
+        }
+
+        if DEBUG:
+            log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
+
+        # Tradução para nomes aceitos pela API Bling (filtro por alteração)
+        params_api = {
+            "dataAlteracaoInicial": params_base["dataInicial"],
+            "dataAlteracaoFinal": params_base["dataFinal"]
+        }
+
+        pagina = 1
+        limite = 100
+        total_inseridos = 0
+        maior_data = None
+
+        while True:
+            ids_vendedores = api.get_vendedores_ids_pagina(pagina, limit=limite, params=params_api)
+            if not ids_vendedores:
+                break
+
+            if DEBUG:
+                log_etl(ENT, "DEBUG", f"Página {pagina}: {len(ids_vendedores)} IDs coletados.")
+
+            vendedores_detalhados = []
+            for idx, id_vend in enumerate(ids_vendedores, 1):
                 if DEBUG:
-                    log_etl("VENDEDORES", "WARN", erro=erro_msg)
-                registrar_falha_importacao(
-                    db_uri=db_uri,
-                    entidade="vendedor",
-                    id_referencia=id_vend,
-                    erro=erro_msg,
-                    id_log=id_log_vend
-                )
+                    log_etl(ENT, "DEBUG", f"ID {((pagina-1)*limite)+idx}: {id_vend}")
+                try:
+                    resp = api.get_vendedor_por_id(id_vend)
+                    if resp and "data" in resp:
+                        vendedores_detalhados.append(resp["data"])
+                    else:
+                        erro_msg = f"Vendedor ID {id_vend} não retornou detalhes ou veio vazio."
+                        if DEBUG:
+                            log_etl(ENT, "WARN", erro=erro_msg)
+                        registrar_falha_importacao(
+                            db_uri=db_uri,
+                            entidade="vendedor",
+                            id_referencia=id_vend,
+                            erro=erro_msg,
+                            id_log=id_log_vend
+                        )
+                except Exception as erro:
+                    erro_msg = f"Erro ao buscar vendedor ID {id_vend}: {erro}" 
+                    if DEBUG:
+                        log_etl(ENT, "ERROR", erro=erro_msg)
+                    registrar_falha_importacao(
+                        db_uri=db_uri,
+                        entidade="venda",
+                        id_referencia=id_vend,
+                        erro=erro_msg,
+                        id_log=id_log_vend
+                    )
+                time.sleep(0.35)
 
-        log_etl("VENDEDORES", "API", "Dados detalhados coletados da API", quantidade=len(vendedores_detalhados))
+            log_etl(ENT, "API", f"IDs coletados da página {pagina}", quantidade=len(vendedores_detalhados))
 
-        upsert_vendedores_bling(db_uri, vendedores_detalhados)
-        log_etl("VENDEDORES", "DB", "Inseridos/atualizados no banco", quantidade=len(vendedores_detalhados))
+            vendedores_mapeados = map_vendedores(vendedores_detalhados)
+            upsert_vendedores_bling_bulk(db_uri, vendedores_mapeados)
+            log_etl(ENT, "DB", f"Inseridos/atualizados no banco (página {pagina})", quantidade=len(vendedores_mapeados))
+
+            total_inseridos += len(vendedores_mapeados)
+            pagina_maior_data = max(
+                [p["dt_atualizacao"] for p in vendedores_mapeados if p.get("dt_atualizacao")],
+                default=None
+            )
+            if pagina_maior_data and (maior_data is None or pagina_maior_data > maior_data):
+                maior_data = pagina_maior_data
+
+            pagina += 1
 
         finalizar_log_etl(db_uri, id_log_vend, status="finalizado")
-        log_etl("VENDEDORES", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
+        log_etl(ENT, "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
 
         atualizar_controle_carga(
-            db_uri,
-            "vendedores",
-            "stg.vendedor",
-            "api_to_stg",
-            dt_ultima_carga=datetime.now(),
-            suporte_incremental='N'
+            db_uri=db_uri,
+            entidade="vendedor",
+            tabela_fisica="stg.vendedor_bling",
+            etapa="api_to_stg",
+            dt_ultima_carga=datetime.now().date(),
+            suporte_incremental='S'
         )
+
     except Exception as e:
-        log_etl("VENDEDORES", "ERRO", erro=str(e))
+        log_etl(ENT, "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_vend, status="erro", mensagem_erro=str(e))
         raise
 else:
-    log_etl("VENDEDORES", "DESLIGADA", "Carga de vendedores está desligada (RODAR_VENDEDOR = False)")
+    log_etl("VENDEDOR", "DESLIGADA", "Carga de vendedores está desligada (RODAR_VENDEDOR = False)")
+
+
 
 
 
@@ -549,13 +622,14 @@ if RODAR_DEPOSITOS:
         log_etl("DEPOSITOS", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio))
 
         atualizar_controle_carga(
-            db_uri,
-            "depositos",
-            "stg.deposito_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="estoque",
+            tabela_fisica="stg.deposito_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now().date(),
             suporte_incremental='N'
         )
+
     except Exception as e:
         log_etl("DEPOSITOS", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_deposito, status="erro", mensagem_erro=str(e))
@@ -626,13 +700,14 @@ if RODAR_SALDO_PRODUTO_DEPOSITO:
         log_etl("SALDO_PROD_DEP", "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
 
         atualizar_controle_carga(
-            db_uri,
-            "saldo_produto_deposito",
-            "stg.saldo_produto_deposito_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="estoque",
+            tabela_fisica="stg.saldo_produto_deposito_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now().date(),
             suporte_incremental='N'
         )
+
     except Exception as e:
         log_etl("SALDO_PROD_DEP", "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_saldo, status="erro", mensagem_erro=str(e))
@@ -643,7 +718,7 @@ else:
 
 
 
-# %% PEDIDOS: VENDAS
+# %% PEDIDOS: VENDAS  ===== (INCREMENTAL)
 if RODAR_PEDIDOS_VENDAS:
     ENT = "PEDIDOS_VENDAS"
     log_etl(ENT, "INÍCIO", "Carga de pedidos de venda iniciada")
@@ -652,27 +727,26 @@ if RODAR_PEDIDOS_VENDAS:
 
     try:
         if CARGA_FULL:
-            dt_ini = (BLING_FULL_INICIO.strftime("%Y-%m-%d")
-                    if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10])
-            dt_fim = (BLING_FULL_FIM.strftime("%Y-%m-%d")
-                    if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10])
+            dt_ini = BLING_FULL_INICIO.strftime("%Y-%m-%d") if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10]
+            dt_fim = BLING_FULL_FIM.strftime("%Y-%m-%d") if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10]
         else:
             dt_ini, dt_fim = get_data_periodo_incremental(
                 db_uri,
-                "pedido_venda",
+                "stg.pedido_venda_bling",
                 "api_to_stg",
                 MARGEM_DIAS_INCREMENTO,
                 DATA_FULL_INICIAL
             )
-            dt_fim = (datetime.now() - timedelta(minutes=MARGEM_MINUTOS_DRIFT)).strftime("%Y-%m-%d")
 
         params_base = {
             "dataInicial": dt_ini,
-            "dataFinal":   dt_fim
-        }
+            "dataFinal": dt_fim
+}
+
 
         if DEBUG:
             log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
+
 
         pagina = 1
         limite = 100
@@ -749,13 +823,14 @@ if RODAR_PEDIDOS_VENDAS:
         log_etl(ENT, "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
 
         atualizar_controle_carga(
-            db_uri,
-            "pedido_venda",
-            "stg.pedido_venda_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="pedido_venda",
+            tabela_fisica="stg.pedido_venda_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now().date(),
             suporte_incremental='S' if not CARGA_FULL else 'N'
         )
+
 
     except Exception as e:
         log_etl(ENT, "ERRO", erro=str(e))
@@ -765,9 +840,7 @@ else:
     log_etl("PEDIDOS_VENDAS", "DESLIGADA", "Carga de pedidos de venda está desligada (RODAR_PEDIDOS_VENDAS = False)")
 
 
-
-
-# %% CATEGORIAS RECEITAS/DESPESAS (DIMENSÃO - FULL COM LOG DETALHADO)
+# %% CATEGORIAS RECEITAS/DESPESAS
 if RODAR_CATEGORIAS_RECEITAS_DESPESAS:
     ENT = "CAT_REC_DESP"
     log_etl(ENT, "INÍCIO", "Carga de categorias de receitas/despesas iniciada")
@@ -823,13 +896,14 @@ if RODAR_CATEGORIAS_RECEITAS_DESPESAS:
         log_etl(ENT, "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
 
         atualizar_controle_carga(
-            db_uri,
-            "categoria_receita_despesa",
-            "stg.categoria_receita_despesa_bling",
-            "api_to_stg",
+            db_uri=db_uri,
+            entidade="financeiro",
+            tabela_fisica="stg.categoria_receita_despesa_bling",
+            etapa="api_to_stg",
             dt_ultima_carga=datetime.now().date(),
             suporte_incremental='N'
         )
+
     except Exception as e:
         log_etl(ENT, "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log_cat_fin, status="erro", mensagem_erro=str(e))
