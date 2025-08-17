@@ -4,7 +4,7 @@ from datetime import date, datetime, timedelta
 from src.transformers import map_produtos, map_saldo_produto_deposito
 from src.db import upsert_produto_bling_bulk, upsert_saldo_produto_deposito_bulk
 from src.date_utils import parse_date_safe
-from src.config import (MARGEM_DIAS_INCREMENTO, MARGEM_MINUTOS_DRIFT, DATA_FULL_INICIAL)
+from src.config import (MARGEM_DIAS_INCREMENTO, DATA_FULL_INICIAL)
 from src.log import (log_etl,)
 
 # endregion

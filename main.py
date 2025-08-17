@@ -44,7 +44,6 @@ from src.log import (
 
 from src.config import (
     DEBUG,
-    MARGEM_MINUTOS_DRIFT,
     CARGA_FULL,
     BLING_FULL_INICIO,       
     BLING_FULL_FIM,
@@ -748,7 +747,7 @@ if RODAR_PEDIDOS_VENDAS:
             log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
 
 
-        pagina = 1
+        pagina = 594
         limite = 100
         total_inseridos = 0
         buffer = []
