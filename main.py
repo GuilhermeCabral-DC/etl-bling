@@ -747,7 +747,7 @@ if RODAR_PEDIDOS_VENDAS:
             log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
 
 
-        pagina = 594
+        pagina = 1
         limite = 100
         total_inseridos = 0
         buffer = []

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 # region ============= CONTROLE DE CARGA =============
 
-CARGA_FULL = True
+CARGA_FULL = False
 BLING_FULL_INICIO=datetime(2021,1,1)
 BLING_FULL_FIM=datetime(2021,12,31)
 
