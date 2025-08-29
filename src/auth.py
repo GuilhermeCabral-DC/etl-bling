@@ -1,12 +1,13 @@
 # region ==== IMPORTS ====
-
 import requests
 import time
 import json
 import os
 import base64
-
+from dotenv import load_dotenv
+load_dotenv()
 # endregion
+
 
 # region ==== VARIÁVEIS DE AMBIENTE ====
 CLIENT_ID = os.getenv("CLIENT_ID")

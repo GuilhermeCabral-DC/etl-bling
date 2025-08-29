@@ -82,6 +82,8 @@ nav:
       - Carga: python/carga.md
       - Logging: python/logging.md
       - Utilitários: python/utils.md
+  - Power BI:
+      - Vendas: pbi/index.md
   - Configuração:
       - Parâmetros: settings.md
       - Deploy & Execução: deploy.md

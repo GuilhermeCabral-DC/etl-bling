@@ -32,3 +32,6 @@ Thumbs.db
 *.log
 tokens.json
 erp_dw.session.sql
+.venv/
+.venv_airflow/
+venv/

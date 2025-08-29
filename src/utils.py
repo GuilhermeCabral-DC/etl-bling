@@ -26,7 +26,6 @@ def get_data_periodo_incremental(db_uri, tabela_fisica, etapa, margem_dias, data
     return dt_ini.strftime("%Y-%m-%d"), dt_fim.strftime("%Y-%m-%d")
 # endregion
 
-
 # region REPROCESSA FULL
 def reprocessar_todas_falhas(api, db_uri):
     import psycopg2
@@ -97,7 +96,7 @@ def marcar_falha_como_processada(db_uri, entidade, id_referencia):
     with conn:
         with conn.cursor() as cur:
             cur.execute("""
-                UPDATE conf.importacao_falha
+                UPDATE conf.log_detalhes
                    SET processado = TRUE, dt_falha = NOW()
                  WHERE entidade = %s AND id_referencia = %s AND processado = FALSE
             """, (entidade, str(id_referencia)))
@@ -245,18 +244,26 @@ def format_bling_datetime(dt):
 # region JANELA INCREMENTAL
 def janela_incremental(carga_full, ultima_execucao, margem_dias, data_full_inicial):
     """
-    Retorna (dt_inicial, dt_final) como datetime, cortando dt_final até o fim do dia anterior.
+    Retorna (dt_inicial, dt_final) como datetime.
+    - Se carga_full: usa data_full_inicial até ontem.
+    - Se carga incremental: usa dt_ultima_execucao menos margem até ontem.
+    - Se margem = 0: considera hoje como início e fim (sem margem).
     """
     agora = datetime.now()
-    dt_final = (agora - timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=0)
-
-    if carga_full or not ultima_execucao:
-        dt_inicial = data_full_inicial
+    
+    if margem_dias == 0:
+        # Ignora lógica de dt_ultima_carga, considera somente o dia de hoje
+        dt_inicial = dt_final = agora.replace(hour=0, minute=0, second=0, microsecond=0)
     else:
-        # Garantir que ultima_execucao seja datetime
-        if isinstance(ultima_execucao, date) and not isinstance(ultima_execucao, datetime):
-            ultima_execucao = datetime.combine(ultima_execucao, datetime.min.time())
-        dt_inicial = (ultima_execucao - timedelta(days=margem_dias)).replace(hour=0, minute=0, second=0, microsecond=0)
+        dt_final = (agora - timedelta(days=1)).replace(hour=23, minute=59, second=59, microsecond=0)
+
+        if carga_full or not ultima_execucao:
+            dt_inicial = data_full_inicial
+        else:
+            # Garantir que ultima_execucao seja datetime
+            if isinstance(ultima_execucao, date) and not isinstance(ultima_execucao, datetime):
+                ultima_execucao = datetime.combine(ultima_execucao, datetime.min.time())
+            dt_inicial = (ultima_execucao - timedelta(days=margem_dias)).replace(hour=0, minute=0, second=0, microsecond=0)
 
     return dt_inicial, dt_final
 # endregion
@@ -291,7 +298,7 @@ def reprocessa_pedidos_vendas_por_ids(lista_ids, api, db_uri, batch_size=20):
     - Busca detalhe do pedido na API
     - Mapeia (map_pedido_venda)
     - Faz upsert em batch (upsert_pedido_venda_bling_bulk) usando flush_buffer
-    - Marca a falha como processada em conf.importacao_falha
+    - Marca a falha como processada em conf.log_detalhes
     """
     from src.transformers import map_pedido_venda
     from src.db import upsert_pedido_venda_bling_bulk
@@ -312,10 +319,10 @@ def reprocessa_pedidos_vendas_por_ids(lista_ids, api, db_uri, batch_size=20):
             if det:
                 registro = map_pedido_venda(det)
                 buffer.append(registro)
+                marcar_falha_como_processada(db_uri, "pedido_venda", pid)
 
                 if len(buffer) >= batch_size:
                     total_processados += flush_buffer(db_uri, buffer, upsert_pedido_venda_bling_bulk, batch_size, ENT, log_etl)
-                    marcar_falha_como_processada(db_uri, "pedido_venda", pid)
             else:
                 log_etl(ENT, "WARN", f"ID {pid} não retornou detalhe ou veio vazio.")
                 registrar_falha_importacao(
@@ -337,4 +344,31 @@ def reprocessa_pedidos_vendas_por_ids(lista_ids, api, db_uri, batch_size=20):
     total_processados += flush_buffer(db_uri, buffer, upsert_pedido_venda_bling_bulk, batch_size, ENT, log_etl)
 
     log_etl(ENT, "INFO", f"Reprocessamento manual concluído. Total processados: {total_processados}")
+# endregion
+
+# region ============= MONTRAR FILTRO DE PEDIDOS FULL OU INCREMENTAL =============
+def montar_filtro_pedidos(dt_ini, dt_fim, etapa):
+    if etapa == "carga_full":
+        return {
+            "dataInicial": dt_ini,
+            "dataFinal": dt_fim
+        }
+    else:
+        return {
+            "dataAlteracaoInicial": dt_ini,
+            "dataAlteracaoFinal": dt_fim
+        }
+# endregion
+
+# region FUNCAO PARA MARGEM DIAS INCREMENTAL
+
+def calcular_margem_dinamica(margem_config: int) -> int:
+    """
+    Se hoje é segunda-feira, retorna 3 para cobrir sexta a domingo.
+    Caso contrário, retorna a margem configurada.
+    """
+    hoje = datetime.now().weekday()  # segunda = 0
+    if hoje == 0 and margem_config < 3:
+        return 3
+    return margem_config
 # endregion

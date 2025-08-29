@@ -112,63 +112,58 @@ def upsert_canais_venda_bling_bulk(lista_de_dicts, db_uri):
 # endregion
 
 # region VENDEDOR
-def upsert_vendedores_bling_bulk(db_uri, lista_vendedores, batch_size=100):
+def upsert_vendedores_bling_bulk(db_uri, lista_vendedores):
     """
     Insere ou atualiza registros de vendedores na tabela stg.vendedor_bling.
+    Na inserção inicial, dt_carga recebe CURRENT_TIMESTAMP.
+    Em atualizações, dt_carga permanece inalterado e dt_atualizacao recebe CURRENT_TIMESTAMP.
     """
     if not lista_vendedores:
         return
-
-    query = """
-        INSERT INTO stg.vendedor_bling (
-            id_bling,
-            vl_desconto_limite,
-            id_loja,
-            id_contato,
-            nome_contato,
-            situacao_contato,
-            comissoes,
-            dt_carga,
-            dt_atualizacao
-        )
-        VALUES %s
-        ON CONFLICT (id_bling) DO UPDATE SET
-            vl_desconto_limite = EXCLUDED.vl_desconto_limite,
-            id_loja = EXCLUDED.id_loja,
-            id_contato = EXCLUDED.id_contato,
-            nome_contato = EXCLUDED.nome_contato,
-            situacao_contato = EXCLUDED.situacao_contato,
-            comissoes = EXCLUDED.comissoes,
-            dt_carga = EXCLUDED.dt_carga,
-            dt_atualizacao = EXCLUDED.dt_atualizacao;
-    """
-
-    with psycopg2.connect(db_uri) as conn:
+    conn = psycopg2.connect(db_uri)
+    with conn:
         with conn.cursor() as cur:
-            agora = datetime.now()
-            total = len(lista_vendedores)
-            for i in range(0, total, batch_size):
-                batch = lista_vendedores[i:i+batch_size]
-                psycopg2.extras.execute_values(
-                    cur, query,
-                    [(
-                        v["id_bling"],
-                        v["vl_desconto_limite"],
-                        v["id_loja"],
-                        v["id_contato"],
-                        v["nome_contato"],
-                        v["situacao_contato"],
-                        psycopg2.extras.Json(v["comissoes"]),
-                        v["dt_carga"],
-                        v["dt_atualizacao"]
-                    ) for v in batch]
+            # Preparar o campo comissoes como JSON
+            for v in lista_vendedores:
+                v["comissoes"] = psycopg2.extras.Json(v.get("comissoes", {}))
+            # Comando SQL parametrizado para upsert
+            sql = """
+                INSERT INTO stg.vendedor_bling (
+                    id_bling,
+                    vl_desconto_limite,
+                    id_loja,
+                    id_contato,
+                    nome_contato,
+                    situacao_contato,
+                    comissoes,
+                    dt_carga,
+                    dt_atualizacao
                 )
-                if DEBUG:
-                    log_etl(
-                        "VENDEDORES",
-                        "DEBUG",
-                        f"Batch {i//batch_size + 1}: {len(batch)} vendedores inseridos/atualizados."
-                    )
+                VALUES (
+                    %(id_bling)s,
+                    %(vl_desconto_limite)s,
+                    %(id_loja)s,
+                    %(id_contato)s,
+                    %(nome_contato)s,
+                    %(situacao_contato)s,
+                    %(comissoes)s,
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                )
+                ON CONFLICT (id_bling) DO UPDATE
+                SET
+                    vl_desconto_limite = EXCLUDED.vl_desconto_limite,
+                    id_loja            = EXCLUDED.id_loja,
+                    id_contato         = EXCLUDED.id_contato,
+                    nome_contato       = EXCLUDED.nome_contato,
+                    situacao_contato   = EXCLUDED.situacao_contato,
+                    comissoes          = EXCLUDED.comissoes,
+                    -- dt_carga não é modificado em atualizações
+                    dt_atualizacao     = CURRENT_TIMESTAMP
+            """
+            # Executa o batch de upsert com paginação de 1000 registros
+            psycopg2.extras.execute_batch(cur, sql, lista_vendedores, page_size=1000)
+
 # endregion
 
 # region PRODUTO (FULL OU INCREMENTAL)

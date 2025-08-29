@@ -9,7 +9,7 @@ from src.config import (
 )
 from src.auth import get_valid_access_token   # <---- NOVO: importa função de token dinâmico
 
-BLING_API_URL = "https://www.bling.com.br/Api/v3"  # URL base da API do Bling
+BLING_API_URL = "https://api.bling.com.br/Api/v3"  # URL base da API do Bling
 
 
 class BlingAPI:
@@ -66,7 +66,7 @@ class BlingAPI:
 
         try:
             # response = requests.get(url, headers=self.headers, params=params, timeout=10)
-            response = requests.get(url, headers=self.get_headers(), params=params, timeout=10)  # <--- NOVO
+            response = requests.get(url, headers=self.get_headers(), params=params, timeout=60)  # <--- NOVO
             self.last_request_time = time.time()
             if response.status_code == 429:
                 time.sleep(2)

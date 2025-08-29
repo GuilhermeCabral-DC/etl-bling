@@ -34,8 +34,11 @@ from src.utils import (
     get_ultima_data_carga,
     registrar_falha_importacao,
     get_data_periodo_incremental,
-    flush_buffer
+    flush_buffer,
+    montar_filtro_pedidos,
+    calcular_margem_dinamica,
 )
+
 from src.log import (
     log_etl,
     iniciar_log_etl,
@@ -60,6 +63,8 @@ from src.config import (
     RODAR_PEDIDOS_VENDAS,   
     RODAR_CATEGORIAS_RECEITAS_DESPESAS 
 )
+
+margem_dias_ajustada = calcular_margem_dinamica(MARGEM_DIAS_INCREMENTO)
 
 from src.date_utils import (
     format_bling_datetime
@@ -270,7 +275,7 @@ if RODAR_PRODUTO:
                 db_uri,
                 "stg.produto_bling",
                 "api_to_stg",
-                MARGEM_DIAS_INCREMENTO,
+                margem_dias_ajustada,
                 DATA_FULL_INICIAL
             )
 
@@ -463,7 +468,7 @@ if RODAR_VENDEDOR:
                 db_uri,
                 "stg.vendedor_bling",
                 "api_to_stg",
-                MARGEM_DIAS_INCREMENTO,
+                margem_dias_ajustada,
                 DATA_FULL_INICIAL
             )
 
@@ -725,6 +730,8 @@ if RODAR_PEDIDOS_VENDAS:
     tempo_inicio = time.time()
 
     try:
+        etapa = "carga_full" if CARGA_FULL else "api_to_stg"
+
         if CARGA_FULL:
             dt_ini = BLING_FULL_INICIO.strftime("%Y-%m-%d") if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10]
             dt_fim = BLING_FULL_FIM.strftime("%Y-%m-%d") if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10]
@@ -732,20 +739,16 @@ if RODAR_PEDIDOS_VENDAS:
             dt_ini, dt_fim = get_data_periodo_incremental(
                 db_uri,
                 "stg.pedido_venda_bling",
-                "api_to_stg",
-                MARGEM_DIAS_INCREMENTO,
+                etapa,
+                margem_dias_ajustada,
                 DATA_FULL_INICIAL
             )
 
-        params_base = {
-            "dataInicial": dt_ini,
-            "dataFinal": dt_fim
-}
-
+        # ⬅️ Aqui está a alteração principal: usa função dinâmica para gerar o filtro correto
+        params_base = montar_filtro_pedidos(dt_ini, dt_fim, etapa)
 
         if DEBUG:
             log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
-
 
         pagina = 1
         limite = 100
@@ -766,7 +769,6 @@ if RODAR_PEDIDOS_VENDAS:
                 if DEBUG:
                     log_etl(ENT, "DEBUG", f"ID {((pagina-1)*limite)+idx}: {id_ped}")
                 try:
-                    # raise ValueError("Teste de log_detalhes")  # TESTAR LOG DE ERRO
                     detalhe = api.get_pedido_venda_por_id(id_ped)
                     if detalhe:
                         buffer.append(map_pedido_venda(detalhe))
@@ -830,13 +832,13 @@ if RODAR_PEDIDOS_VENDAS:
             suporte_incremental='S' if not CARGA_FULL else 'N'
         )
 
-
     except Exception as e:
         log_etl(ENT, "ERRO", erro=str(e))
         finalizar_log_etl(db_uri, id_log, status="erro", mensagem_erro=str(e))
         raise
 else:
     log_etl("PEDIDOS_VENDAS", "DESLIGADA", "Carga de pedidos de venda está desligada (RODAR_PEDIDOS_VENDAS = False)")
+
 
 
 # %% CATEGORIAS RECEITAS/DESPESAS
