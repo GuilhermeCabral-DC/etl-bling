@@ -14,9 +14,13 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 TOKEN_URL = os.getenv("TOKEN_URL")
-TOKENS_PATH = os.getenv("TOKENS_PATH", "tokens.json")
+
+BASE_DIR = os.path.dirname(os.path.dirname(__file__))  # /ETL-BLING
+TOKENS_PATH = os.path.join(BASE_DIR, "tokens.json")
+
 DEBUG = os.getenv("DEBUG", "False").lower() in ("true", "1")  # Pode controlar via .env ou config.py
 # endregion
+
 
 # region ==== FUNÇÃO: Carregar tokens ====
 def load_tokens():
@@ -41,8 +45,10 @@ def refresh_access_token():
     client_creds = f"{CLIENT_ID}:{CLIENT_SECRET}"
     client_creds_b64 = base64.b64encode(client_creds.encode()).decode()
     headers = {
-        "Authorization": f"Basic {client_creds_b64}"
+        "Authorization": f"Basic {client_creds_b64}",
+        "Content-Type": "application/x-www-form-urlencoded"
     }
+
     data = {
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,

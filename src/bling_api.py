@@ -304,4 +304,36 @@ class BlingAPI:
         return resp.get("data", []) if isinstance(resp, dict) else (resp or [])
 # endregion
 
+# region ============= CONTATO: BUSCA IDS (PAGINADO) =============
+    def get_contatos_ids_pagina(self, pagina: int, limit: int = 100, params: dict | None = None):
+        endpoint = "contatos"
+        page_params = (params or {}).copy()
+        page_params["limite"] = limit
+        page_params["pagina"] = pagina
 
+        try:
+            resp = self.get(endpoint, params=page_params)
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 404:
+                return []
+            raise
+
+        data = (
+            resp["data"]
+            if isinstance(resp, dict) and "data" in resp and isinstance(resp["data"], list)
+            else resp if isinstance(resp, list)
+            else []
+        )
+        return [item["id"] for item in data if isinstance(item, dict) and "id" in item]
+    # endregion
+
+    # region ============= CONTATO: DETALHE POR ID =============
+    def get_contato_por_id(self, id_contato):
+        endpoint = f"contatos/{id_contato}"
+        try:
+            response = self.get(endpoint)
+            return response.get("data", {}) if isinstance(response, dict) else {}
+        except Exception as e:
+            log_etl("CONTATO", "ERRO", f"Erro ao buscar detalhe do contato {id_contato}", erro=str(e))
+            return None
+    # endregion

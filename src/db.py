@@ -510,3 +510,56 @@ def upsert_categoria_receita_despesa_bling_bulk(lista_de_dicts, db_uri, batch_si
             )
 # endregion
 
+# region CONTATO: INSERIR/ATUALIZAR (BULK)
+def upsert_contato_bling_bulk(db_uri, registros, batch_size=20):
+    if not registros:
+        return
+
+    query = """
+        INSERT INTO stg.contato_bling (
+            id_bling, nome, codigo, situacao, numero_documento,
+            telefone, celular, email, email_nota_fiscal, tipo,
+            fantasia, indicador_ie, ie, rg, inscricao_municipal,
+            orgao_emissor, logradouro, numero, complemento, bairro,
+            municipio, uf, cep, id_vendedor,
+            origem_dado, dt_carga, dt_atualizacao
+        ) VALUES %s
+        ON CONFLICT (id_bling) DO UPDATE SET
+            nome = EXCLUDED.nome,
+            codigo = EXCLUDED.codigo,
+            situacao = EXCLUDED.situacao,
+            numero_documento = EXCLUDED.numero_documento,
+            telefone = EXCLUDED.telefone,
+            celular = EXCLUDED.celular,
+            email = EXCLUDED.email,
+            email_nota_fiscal = EXCLUDED.email_nota_fiscal,
+            tipo = EXCLUDED.tipo,
+            fantasia = EXCLUDED.fantasia,
+            indicador_ie = EXCLUDED.indicador_ie,
+            ie = EXCLUDED.ie,
+            rg = EXCLUDED.rg,
+            inscricao_municipal = EXCLUDED.inscricao_municipal,
+            orgao_emissor = EXCLUDED.orgao_emissor,
+            logradouro = EXCLUDED.logradouro,
+            numero = EXCLUDED.numero,
+            complemento = EXCLUDED.complemento,
+            bairro = EXCLUDED.bairro,
+            municipio = EXCLUDED.municipio,
+            uf = EXCLUDED.uf,
+            cep = EXCLUDED.cep,
+            id_vendedor = EXCLUDED.id_vendedor,
+            origem_dado = EXCLUDED.origem_dado,
+            dt_atualizacao = EXCLUDED.dt_atualizacao;
+    """
+
+    with psycopg2.connect(db_uri) as conn:
+        with conn.cursor() as cur:
+            total = len(registros)
+            for i in range(0, total, batch_size):
+                batch = registros[i:i+batch_size]
+                psycopg2.extras.execute_values(
+                    cur, query, [tuple(r.values()) for r in batch]
+                )
+                if DEBUG:
+                    log_etl("CONTATO", "DEBUG", f"Batch {i//batch_size + 1}: {len(batch)} contatos inseridos/atualizados.")
+# endregion

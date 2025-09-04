@@ -269,3 +269,45 @@ def map_categoria_receita_despesa(item):
         "dt_atualizacao":   now
     }
 # endregion
+
+# region MAPEAR CONTATO
+def map_contato(api_obj):
+    """
+    Recebe o 'data' de /contatos/{id} e devolve um dict compatível com stg.contato_bling.
+    """
+    from datetime import datetime
+    now = datetime.now()
+
+    endereco = api_obj.get("endereco", {}).get("geral", {})
+    vendedor = api_obj.get("vendedor", {}) or {}
+
+    return {
+        "id_bling": api_obj.get("id"),
+        "nome": api_obj.get("nome"),
+        "codigo": api_obj.get("codigo"),
+        "situacao": api_obj.get("situacao"),
+        "numero_documento": api_obj.get("numeroDocumento"),
+        "telefone": api_obj.get("telefone"),
+        "celular": api_obj.get("celular"),
+        "email": api_obj.get("email"),
+        "email_nota_fiscal": api_obj.get("emailNotaFiscal"),
+        "tipo": api_obj.get("tipo"),
+        "fantasia": api_obj.get("fantasia"),
+        "indicador_ie": api_obj.get("indicadorIe"),
+        "ie": api_obj.get("ie"),
+        "rg": api_obj.get("rg"),
+        "inscricao_municipal": api_obj.get("inscricaoMunicipal"),
+        "orgao_emissor": api_obj.get("orgaoEmissor"),
+        "logradouro": endereco.get("endereco"),
+        "numero": endereco.get("numero"),
+        "complemento": endereco.get("complemento"),
+        "bairro": endereco.get("bairro"),
+        "municipio": endereco.get("municipio"),
+        "uf": endereco.get("uf"),
+        "cep": endereco.get("cep"),
+        "id_vendedor": vendedor.get("id"),
+        "origem_dado": "bling_api",
+        "dt_carga": now,
+        "dt_atualizacao": now  # será sobrescrito pela lógica incremental se necessário
+    }
+# endregion

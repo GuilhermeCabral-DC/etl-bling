@@ -15,7 +15,8 @@ from src.db import (
     upsert_deposito_bling_bulk,
     upsert_saldo_produto_deposito_bulk,
     upsert_pedido_venda_bling_bulk,
-    upsert_categoria_receita_despesa_bling_bulk
+    upsert_categoria_receita_despesa_bling_bulk,
+    upsert_contato_bling_bulk
 )
 from src.transformers import (
     map_empresa,
@@ -27,7 +28,8 @@ from src.transformers import (
     map_deposito,
     map_saldo_produto_deposito,
     map_pedido_venda,
-    map_categoria_receita_despesa
+    map_categoria_receita_despesa,
+    map_contato
 )
 from src.utils import (
     atualizar_controle_carga,
@@ -37,6 +39,7 @@ from src.utils import (
     flush_buffer,
     montar_filtro_pedidos,
     calcular_margem_dinamica,
+    montar_filtro_contatos
 )
 
 from src.log import (
@@ -61,7 +64,8 @@ from src.config import (
     RODAR_DEPOSITOS,
     RODAR_SALDO_PRODUTO_DEPOSITO,
     RODAR_PEDIDOS_VENDAS,   
-    RODAR_CATEGORIAS_RECEITAS_DESPESAS 
+    RODAR_CATEGORIAS_RECEITAS_DESPESAS,
+    RODAR_CONTATO
 )
 
 margem_dias_ajustada = calcular_margem_dinamica(MARGEM_DIAS_INCREMENTO)
@@ -205,7 +209,7 @@ else:
 
 
 
-# %% GRUPO PRODUTO
+ # %% GRUPO PRODUTO
 
 if RODAR_GRUPO_PRODUTO:
     log_etl("GRUPO PRODUTO", "INÍCIO", "Carga do grupo produto iniciada")
@@ -912,8 +916,125 @@ if RODAR_CATEGORIAS_RECEITAS_DESPESAS:
 else:
     log_etl("CAT_REC_DESP", "DESLIGADA", "Carga está desligada (RODAR_CATEGORIAS_RECEITAS_DESPESAS = False)")
 
+# %% CONTATOS ===== (INCREMENTAL)
+if RODAR_CONTATO:
+    ENT = "CONTATO"
+    log_etl(ENT, "INÍCIO", "Carga de contatos iniciada")
+    id_log = iniciar_log_etl(db_uri, tabela="contato_bling", acao="extracao")
+    tempo_inicio = time.time()
 
+    try:
+        etapa = "carga_full" if CARGA_FULL else "api_to_stg"
 
+        if CARGA_FULL:
+            dt_ini = BLING_FULL_INICIO.strftime("%Y-%m-%d") if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10]
+            dt_fim = BLING_FULL_FIM.strftime("%Y-%m-%d") if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10]
+        else:
+            dt_ini, dt_fim = get_data_periodo_incremental(
+                db_uri,
+                "stg.contato_bling",
+                etapa,
+                margem_dias_ajustada,
+                DATA_FULL_INICIAL
+            )
 
+        # ⬇️ Usa nomes de campos corretos da API de contatos
+        params_base = montar_filtro_contatos(dt_ini, dt_fim, etapa)
+
+        if DEBUG:
+            log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
+
+        pagina = 342
+        limite = 100
+        total_inseridos = 0
+        buffer = []
+        BATCH_SIZE = 20
+        MAX_PAGES = None  # opcional para testes
+
+        while True:
+            ids_contatos = api.get_contatos_ids_pagina(pagina, limit=limite, params=params_base)
+            if not ids_contatos:
+                break
+
+            if DEBUG:
+                log_etl(ENT, "DEBUG", f"Página {pagina}: {len(ids_contatos)} IDs coletados.")
+
+            for idx, id_bling in enumerate(ids_contatos, 1):
+                if DEBUG:
+                    log_etl(ENT, "DEBUG", f"ID {((pagina-1)*limite)+idx}: {id_bling}")
+                try:
+                    detalhe = api.get_contato_por_id(id_bling)
+                    if detalhe:
+                        mapped = map_contato(detalhe)
+                        # opcional: sobrescrever dt_atualizacao com valor vindo da API
+                        mapped["dt_atualizacao"] = datetime.now()
+                        buffer.append(mapped)
+
+                        if len(buffer) >= BATCH_SIZE:
+                            total_inseridos += flush_buffer(
+                                db_uri=db_uri,
+                                buffer=buffer,
+                                upsert_fn=upsert_contato_bling_bulk,
+                                batch_size=BATCH_SIZE,
+                                ent_label=ENT,
+                                log_fn=log_etl
+                            )
+                    else:
+                        erro_msg = f"Contato ID {id_bling} não retornou detalhe ou veio vazio."
+                        if DEBUG:
+                            log_etl(ENT, "WARN", erro=erro_msg)
+                        registrar_falha_importacao(
+                            db_uri=db_uri,
+                            entidade="contato",
+                            id_referencia=id_bling,
+                            erro=erro_msg,
+                            id_log=id_log
+                        )
+                except Exception as erro:
+                    erro_msg = f"Falha ao buscar contato {id_bling}: {erro}"
+                    if DEBUG:
+                        log_etl(ENT, "WARN", erro=erro_msg)
+                    registrar_falha_importacao(
+                        db_uri=db_uri,
+                        entidade="contato",
+                        id_referencia=id_bling,
+                        erro=erro_msg,
+                        id_log=id_log
+                    )
+                time.sleep(0.35)
+
+            log_etl(ENT, "API", f"Detalhes coletados da página {pagina}", quantidade=len(ids_contatos))
+
+            if MAX_PAGES and pagina >= MAX_PAGES:
+                break
+            pagina += 1
+
+        total_inseridos += flush_buffer(
+            db_uri=db_uri,
+            buffer=buffer,
+            upsert_fn=upsert_contato_bling_bulk,
+            batch_size=BATCH_SIZE,
+            ent_label=ENT,
+            log_fn=log_etl
+        )
+
+        finalizar_log_etl(db_uri, id_log, status="finalizado")
+        log_etl(ENT, "FIM", "Carga finalizada", tempo=(time.time() - tempo_inicio), quantidade=total_inseridos)
+
+        atualizar_controle_carga(
+            db_uri=db_uri,
+            entidade="contato",
+            tabela_fisica="stg.contato_bling",
+            etapa="api_to_stg",
+            dt_ultima_carga=datetime.now().date(),
+            suporte_incremental='S' if not CARGA_FULL else 'N'
+        )
+
+    except Exception as e:
+        log_etl(ENT, "ERRO", erro=str(e))
+        finalizar_log_etl(db_uri, id_log, status="erro", mensagem_erro=str(e))
+        raise
+else:
+    log_etl("CONTATO", "DESLIGADA", "Carga de contatos está desligada (RODAR_CONTATO = False)")
 
 # %%

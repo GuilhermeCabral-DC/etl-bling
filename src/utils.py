@@ -268,7 +268,6 @@ def janela_incremental(carga_full, ultima_execucao, margem_dias, data_full_inici
     return dt_inicial, dt_final
 # endregion
 
-
 # region GRAVA O CONTEUDO DO BUFFER E DEPOIS LIMPA
 def flush_buffer(db_uri, buffer, upsert_fn, batch_size, ent_label, log_fn):
     """
@@ -372,3 +371,23 @@ def calcular_margem_dinamica(margem_config: int) -> int:
         return 3
     return margem_config
 # endregion
+
+# region ============= CONTATOS: MONTAR FILTRO (FULL x INCREMENTAL) =============
+def montar_filtro_contatos(dt_ini, dt_fim, etapa):
+    """
+    FULL  -> usa dataInclusaoInicial / dataInclusaoFinal
+    INC   -> usa dataAlteracaoInicial / dataAlteracaoFinal
+    dt_ini / dt_fim devem estar como 'YYYY-MM-DD'
+    """
+    if etapa == "carga_full":
+        return {
+            "dataInclusaoInicial": dt_ini,
+            "dataInclusaoFinal": dt_fim
+        }
+    else:
+        return {
+            "dataAlteracaoInicial": dt_ini,
+            "dataAlteracaoFinal": dt_fim
+        }
+# endregion
+
