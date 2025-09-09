@@ -1,8 +1,8 @@
 # region IMPORTS
 import psycopg2
 from datetime import date, datetime, timedelta
-from src.transformers import map_produtos, map_saldo_produto_deposito
-from src.db import upsert_produto_bling_bulk, upsert_saldo_produto_deposito_bulk
+from src.transformers import map_produtos, map_saldo_produto_deposito, map_contato
+from src.db import upsert_produto_bling_bulk, upsert_saldo_produto_deposito_bulk, upsert_contato_bling_bulk
 from src.date_utils import parse_date_safe
 from src.config import (MARGEM_DIAS_INCREMENTO, DATA_FULL_INICIAL)
 from src.log import (log_etl,)
@@ -391,3 +391,24 @@ def montar_filtro_contatos(dt_ini, dt_fim, etapa):
         }
 # endregion
 
+# region REPROCESSA CONTATOS POR VÁRIOS IDS
+def reprocessa_contatos_por_ids(lista_ids, api, db_uri):
+    """
+    Reprocessa contatos por ID.
+    """
+    for id_contato in lista_ids:
+        try:
+            resp = api.get_contato_por_id(id_contato)
+
+            if isinstance(resp, dict) and "id" in resp:
+                contato_dict = map_contato(resp)  # Corrigido: passa dict diretamente
+                upsert_contato_bling_bulk(db_uri, [contato_dict])  # precisa estar em lista
+                log_etl("CONTATO", "INFO", f"Contato {id_contato} reprocessado com sucesso.")
+                marcar_falha_como_processada(db_uri, "contato", id_contato)
+
+            else:
+                log_etl("CONTATO", "WARN", f"Contato {id_contato} não retornou dados válidos. Response: {resp}")
+
+        except Exception as erro:
+            log_etl("CONTATO", "ERRO", f"Erro ao reprocessar contato {id_contato}: {erro}")
+# endregion

@@ -944,7 +944,7 @@ if RODAR_CONTATO:
         if DEBUG:
             log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
 
-        pagina = 342
+        pagina = 1 ##199 - 1-1 ate 31-05-23
         limite = 100
         total_inseridos = 0
         buffer = []

@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 # region ============= CONTROLE DE CARGA =============
 
 CARGA_FULL = True
-BLING_FULL_INICIO=datetime(2024,6,1)
-BLING_FULL_FIM=datetime(2024,12,31)
+BLING_FULL_INICIO=datetime(2023,1,1)
+BLING_FULL_FIM=datetime(2023,5,31)
 
 DATA_FULL_INICIAL = datetime(2020, 1, 1)
 MARGEM_DIAS_INCREMENTO = 1
@@ -22,6 +22,8 @@ RODAR_SALDO_PRODUTO_DEPOSITO = True
 RODAR_PEDIDOS_VENDAS = True
 RODAR_CATEGORIAS_RECEITAS_DESPESAS = True
 RODAR_CONTATO = True
+REPROCESSAR_CONTATO_MANUAL=True
+
 
 # endregion
 

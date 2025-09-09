@@ -1,10 +1,10 @@
-# %% INICIALIZAÇÃO
-import requests
+# %% === obter_token.py ===
 import os
+import requests
+import json
+import psycopg2
 import time
 import base64
-import json
-from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,44 +12,61 @@ load_dotenv()
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 REDIRECT_URI = os.getenv("REDIRECT_URI")
-TOKEN_URL = os.getenv("TOKEN_URL") or "https://www.bling.com.br/Api/v3/oauth/token"
+TOKEN_URL = os.getenv("TOKEN_URL")
+POSTGRES_URI = os.getenv("POSTGRES_URI")
 
-CODE_RECEBIDO = "b545a3f3034377470921041bab0efa8bc0b4d90f"  # atualize com o code gerado
+# Tabela onde os tokens serão salvos
+TOKEN_TABLE = "conf.token"
 
+# Conexão com PostgreSQL
+conn = psycopg2.connect(POSTGRES_URI)
+
+print("\n🔐 Geração de Token Inicial via OAuth")
+auth_code = input("Cole o 'code' retornado pelo Bling após autenticação: ").strip()
+
+print("\n🔄 Requisitando tokens...")
+
+# Dados para o body da requisição
 data = {
     "grant_type": "authorization_code",
-    "code": CODE_RECEBIDO,
+    "code": auth_code,
     "redirect_uri": REDIRECT_URI
 }
 
-# Header com Auth + Content-Type correto
-client_creds = f"{CLIENT_ID}:{CLIENT_SECRET}"
-client_creds_b64 = base64.b64encode(client_creds.encode()).decode()
+# Monta o header com client_id e client_secret em base64
+client_credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
+b64_credentials = base64.b64encode(client_credentials.encode()).decode()
+
 headers = {
-    "Authorization": f"Basic {client_creds_b64}",
+    "Authorization": f"Basic {b64_credentials}",
     "Content-Type": "application/x-www-form-urlencoded"
 }
 
-resp = requests.post(TOKEN_URL, data=data, headers=headers)
-print("Status:", resp.status_code)
-print("Resposta:", resp.text)
+# Faz a requisição
+response = requests.post(TOKEN_URL, headers=headers, data=data)
 
-if resp.ok:
-    tokens = resp.json()
-    expires_at = int(time.time()) + tokens["expires_in"]
-    tokens_json = {
-        "access_token": tokens["access_token"],
-        "refresh_token": tokens["refresh_token"],
-        "expires_at": expires_at
-    }
+# Exibe erro detalhado, se houver
+if response.status_code != 200:
+    print("⚠️ Erro na resposta:", response.status_code)
+    print("🧾 Conteúdo da resposta:", response.text)
+    response.raise_for_status()
 
-    # 🔒 Garante que salva no mesmo local que o auth.py espera
-    token_path = Path(__file__).resolve().parent.parent / "tokens.json"
-    with open(token_path, "w") as f:
-        json.dump(tokens_json, f, indent=2)
+# Lê os tokens
+tokens = response.json()
+access_token = tokens["access_token"]
+refresh_token = tokens["refresh_token"]
+expires_in = tokens["expires_in"]  # em segundos
+expires_at = int(time.time()) + expires_in
 
-    print(f"✅ Arquivo tokens.json salvo em: {token_path}")
-else:
-    print("❌ Falha ao obter tokens. Verifique se o CODE ainda está válido.")
+# Limpa e insere no banco
+with conn.cursor() as cur:
+    cur.execute(f"DELETE FROM {TOKEN_TABLE}")
+    cur.execute(
+        f"INSERT INTO {TOKEN_TABLE} (access_token, refresh_token, expires_at) VALUES (%s, %s, %s)",
+        (access_token, refresh_token, expires_at)
+    )
+    conn.commit()
+
+print("\n✅ Token salvo com sucesso no banco de dados!")
 
 # %%

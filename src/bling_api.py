@@ -27,7 +27,7 @@ class BlingAPI:
 # region ============= GERA HEADER DINAMICAMENTE (NOVO) =============
     def get_headers(self):
         """
-        Monta os headers sempre com o token válido.
+        Monta os headers sempre com o token válido do banco.
         """
         token = get_valid_access_token()
         return {
@@ -327,7 +327,7 @@ class BlingAPI:
         return [item["id"] for item in data if isinstance(item, dict) and "id" in item]
     # endregion
 
-    # region ============= CONTATO: DETALHE POR ID =============
+# region ============= CONTATO: DETALHE POR ID =============
     def get_contato_por_id(self, id_contato):
         endpoint = f"contatos/{id_contato}"
         try:
@@ -336,4 +336,4 @@ class BlingAPI:
         except Exception as e:
             log_etl("CONTATO", "ERRO", f"Erro ao buscar detalhe do contato {id_contato}", erro=str(e))
             return None
-    # endregion
+# endregion
