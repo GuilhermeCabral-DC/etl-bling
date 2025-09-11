@@ -563,3 +563,71 @@ def upsert_contato_bling_bulk(db_uri, registros, batch_size=20):
                 if DEBUG:
                     log_etl("CONTATO", "DEBUG", f"Batch {i//batch_size + 1}: {len(batch)} contatos inseridos/atualizados.")
 # endregion
+
+# region PRODUTO ESTRUTURA (FULL OU INCREMENTAL)
+def upsert_produto_estrutura_bling_bulk(db_uri, lista_estruturas, batch_size=100):
+    """
+    Insere ou atualiza registros de estrutura de produtos (kits) na tabela stg.produto_estrutura_bling.
+    Na inserção inicial, dt_carga recebe CURRENT_TIMESTAMP; em atualizações, dt_carga permanece e dt_atualizacao é atualizado.
+    """
+    if not lista_estruturas:
+        log_etl("ESTRUTURA PRODUTO", "DEBUG", "Lista de estruturas vazia, nada a inserir.")
+        return
+
+    query = """
+        INSERT INTO stg.produto_estrutura_bling (
+            id_bling,
+            tipo_estoque,
+            lancamento_estoque,
+            id_componente,
+            quantidade_componente,
+            dt_carga,
+            dt_atualizacao
+        ) VALUES %s
+        ON CONFLICT (id_bling, id_componente) DO UPDATE SET
+            tipo_estoque = EXCLUDED.tipo_estoque,
+            lancamento_estoque = EXCLUDED.lancamento_estoque,
+            quantidade_componente = EXCLUDED.quantidade_componente,
+            dt_carga = stg.produto_estrutura_bling.dt_carga,
+            dt_atualizacao = EXCLUDED.dt_atualizacao;
+    """
+
+    with psycopg2.connect(db_uri) as conn:
+        with conn.cursor() as cur:
+            now = datetime.now()
+            total = len(lista_estruturas)
+            for i in range(0, total, batch_size):
+                batch = lista_estruturas[i:i+batch_size]
+
+                # Log de debug dos registros antes de inserir
+                #for e in batch:
+                    #log_etl("ESTRUTURA PRODUTO", "DEBUG", f"Preparando estrutura para upsert: {e}")
+
+                psycopg2.extras.execute_values(cur, query, [
+                    (
+                        e["id_bling"],
+                        e["tipo_estoque"],
+                        e["lancamento_estoque"],
+                        e["id_componente"],
+                        e["quantidade_componente"],
+                        now,
+                        now
+                    ) for e in batch
+                ])
+
+                conn.commit()  # Garantir persistência
+
+                log_etl("ESTRUTURA PRODUTO", "DEBUG", f"Batch {i//batch_size + 1}: {len(batch)} estruturas inseridas/atualizadas.")
+
+# endregion
+
+# region CALL PROCEDURE
+def call_procedure(db_uri: str, procedure_name: str):
+    import psycopg2
+    conn = psycopg2.connect(db_uri)
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute(f"CALL {procedure_name}();")
+    cur.close()
+    conn.close()
+# endregion

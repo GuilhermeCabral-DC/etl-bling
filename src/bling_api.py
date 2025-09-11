@@ -337,3 +337,14 @@ class BlingAPI:
             log_etl("CONTATO", "ERRO", f"Erro ao buscar detalhe do contato {id_contato}", erro=str(e))
             return None
 # endregion
+
+# region ============= PRODUTO: ESTRUTURA POR ID =============
+    def get_produto_estrutura_por_id(self, id_produto):
+        endpoint = f"produtos/estruturas/{id_produto}"
+        try:
+            response = self.get(endpoint)
+            return response
+        except Exception as e:
+            log_etl("ESTRUTURA PRODUTO", "ERRO", f"Erro ao buscar estrutura do produto {id_produto}", erro=str(e))
+            return None
+# endregion

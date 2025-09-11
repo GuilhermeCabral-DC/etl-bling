@@ -137,7 +137,6 @@ def map_vendedores(lista_detalhes):
     return vendedores
 # endregion
 
-
 # region UTILITÁRIO: DATA SEGURA
 def _safe_date(data_str):
     if data_str in [None, "", "0000-00-00", "0000-00-00 00:00:00"]:
@@ -310,4 +309,21 @@ def map_contato(api_obj):
         "dt_carga": now,
         "dt_atualizacao": now  # será sobrescrito pela lógica incremental se necessário
     }
+# endregion
+
+# region MAPEAR ESTRUTURA PRODUTO
+def map_produto_estrutura(estrutura_data, id_produto):
+    if not estrutura_data:
+        return []
+    estrutura_list = []
+    componentes = estrutura_data.get("componentes", [])
+    for comp in componentes:
+        estrutura_list.append({
+            "id_bling": id_produto,
+            "tipo_estoque": estrutura_data.get("tipoEstoque"),
+            "lancamento_estoque": estrutura_data.get("lancamentoEstoque"),
+            "id_componente": comp.get("produto", {}).get("id"),
+            "quantidade_componente": comp.get("quantidade")
+        })
+    return estrutura_list
 # endregion
