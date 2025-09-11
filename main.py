@@ -43,7 +43,6 @@ from src.utils import (
     get_data_periodo_incremental,
     flush_buffer,
     montar_filtro_pedidos,
-    calcular_margem_dinamica,
     montar_filtro_contatos
 )
 from src.log import (
@@ -79,10 +78,27 @@ api_key = os.getenv("BLING_API_KEY")
 db_uri = os.getenv("POSTGRES_URI")
 api = BlingAPI(api_key)
 
-# Ajusta margem para uso nos filtros de incremento
-margem_dias_ajustada = calcular_margem_dinamica(MARGEM_DIAS_INCREMENTO)
+# 🔹 Calcula janela de carga global (usada por todos os blocos)
+try:
+    if CARGA_FULL:
+        dt_ini = BLING_FULL_INICIO.strftime("%Y-%m-%d") if isinstance(BLING_FULL_INICIO, datetime) else str(BLING_FULL_INICIO)[:10]
+        dt_fim = BLING_FULL_FIM.strftime("%Y-%m-%d") if isinstance(BLING_FULL_FIM, datetime) else str(BLING_FULL_FIM)[:10]
+    else:
+        dt_ini, dt_fim = get_data_periodo_incremental(
+            db_uri,
+            "stg.pedido_venda_bling",   # tabela referência para incremental
+            "api_to_stg",
+            MARGEM_DIAS_INCREMENTO,
+            DATA_FULL_INICIAL
+        )
 
-# %% EMPRESA
+    log_etl("ORQUESTRADOR", "INFO", f"Janela de carga definida: De {dt_ini} até {dt_fim}")
+
+except Exception as e:
+    log_etl("ORQUESTRADOR", "ERRO", erro=f"Falha ao calcular janela de carga: {e}")
+    raise
+
+# %% EMPRESA'
 # EMPRESA: 
 # Carga sempre FULL, sem filtros ou paginação
 
@@ -354,7 +370,7 @@ if RODAR_PRODUTO:
                 db_uri,
                 "stg.produto_bling",
                 "api_to_stg",
-                margem_dias_ajustada,
+                MARGEM_DIAS_INCREMENTO,
                 DATA_FULL_INICIAL
             )
 
@@ -363,7 +379,7 @@ if RODAR_PRODUTO:
             "dataFinal": dt_fim
         }
 
-        log_etl("PRODUTOS", "DEBUG", f"Janela usada: {params_base}")
+        log_etl("PRODUTOS", "INFO", f"Janela de carga definida: De {dt_ini} até {dt_fim}")
 
         pagina = 1
         limite = 100
@@ -717,7 +733,7 @@ else:
 # Inclui logs da janela de datas usada, quantidade de IDs por página, e falhas por vendedor.
 
 if RODAR_VENDEDOR:
-    ENT = "VENDEDOR"
+    ENT = "VENDEDORES"
     log_etl(ENT, "INÍCIO", "Carga de vendedores iniciada")
     id_log = iniciar_log_etl(db_uri, tabela="vendedor_bling", acao="extracao")
     tempo_inicio = time.time()
@@ -732,14 +748,14 @@ if RODAR_VENDEDOR:
                 db_uri,
                 "stg.vendedor_bling",
                 "api_to_stg",
-                margem_dias_ajustada,
+                MARGEM_DIAS_INCREMENTO,
                 DATA_FULL_INICIAL
             )
             etapa = "api_to_stg"
 
         # Janela usada para filtro (sempre logada)
         params_base = {"dataInicial": dt_ini, "dataFinal": dt_fim}
-        log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
+        log_etl(ENT, "INFO", f"Janela de carga definida: De {dt_ini} até {dt_fim}")
 
         # Tradução para parâmetros aceitos pela API Bling
         params_api = {
@@ -851,7 +867,7 @@ if RODAR_CONTATO:
                 db_uri,
                 "stg.contato_bling",
                 etapa,
-                margem_dias_ajustada,
+                MARGEM_DIAS_INCREMENTO,
                 DATA_FULL_INICIAL
             )
 
@@ -1056,15 +1072,21 @@ if RODAR_PEDIDOS_VENDAS:
                 db_uri,
                 "stg.pedido_venda_bling",
                 etapa,
-                margem_dias_ajustada,
+                MARGEM_DIAS_INCREMENTO,
                 DATA_FULL_INICIAL
             )
+        
+        # 🔹 Log da janela de carga (mesmo padrão de CONTATOS)
+        log_etl(ENT, "INFO", f"Janela de carga definida: De {dt_ini} até {dt_fim}")
 
         # Gera filtro com nomes de campos corretos para API
         params_base = montar_filtro_pedidos(dt_ini, dt_fim, etapa)
 
         if DEBUG:
             log_etl(ENT, "DEBUG", f"Janela usada: {params_base}")
+
+
+        
 
         pagina = 1
         limite = 100

@@ -9,7 +9,7 @@ BLING_FULL_INICIO=datetime(2023,1,1)
 BLING_FULL_FIM=datetime(2023,5,31)
 
 DATA_FULL_INICIAL = datetime(2020, 1, 1)
-MARGEM_DIAS_INCREMENTO = 1
+MARGEM_DIAS_INCREMENTO = 3
 
 RODAR_PIPELINE_CARGA_COMPLETA = True
 
@@ -43,6 +43,6 @@ REPROCESSAR_PEDIDOS_VENDAS_MANUAL = True
 
 # region ============= DEBUGAR =============
 
-DEBUG = True
+DEBUG = False
 
 # endregion
